@@ -21,13 +21,13 @@ namespace Kaida.Handler
 
         private async Task CommandExecuted(CommandExecutionEventArgs e)
         {
-            _logger.Information($"[Kaida] The command '{e.Command.Name}' has been executed by '{e.Context.User.Username}#{e.Context.User.Discriminator}' in the channel '{e.Context.Channel.Name}' ({e.Context.Channel.Id}) on the guild '{e.Context.Guild.Name}' ({e.Context.Guild.Id}).");
+            _logger.Information($"The command '{e.Command.Name}' has been executed by '{e.Context.User.Username}#{e.Context.User.Discriminator}' in the channel '{e.Context.Channel.Name}' ({e.Context.Channel.Id}) on the guild '{e.Context.Guild.Name}' ({e.Context.Guild.Id}).");
             await e.Context.Channel.DeleteMessageById(e.Context.Message.Id);
         }
 
         private async Task CommandErrored(CommandErrorEventArgs e)
         {
-            _logger.Error(e.Exception, $"[Kaida] The command '{e.Command.Name}' has been errored by '{e.Context.User.Username}#{e.Context.User.Discriminator}' in the channel '{e.Context.Channel.Name}' ({e.Context.Channel.Id}) on the guild '{e.Context.Guild.Name}' ({e.Context.Guild.Id}).");
+            _logger.Error(e.Exception, $"The command '{e.Command.Name}' has been errored by '{e.Context.User.Username}#{e.Context.User.Discriminator}' in the channel '{e.Context.Channel.Name}' ({e.Context.Channel.Id}) on the guild '{e.Context.Guild.Name}' ({e.Context.Guild.Id}).");
             await e.Context.Channel.DeleteMessageById(e.Context.Message.Id);
         }
     }
