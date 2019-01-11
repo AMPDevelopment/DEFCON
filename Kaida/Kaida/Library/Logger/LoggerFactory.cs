@@ -10,7 +10,7 @@ namespace Kaida.Library.Logger
             var logger = new LoggerConfiguration()
                 .MinimumLevel.Verbose()
                 .WriteTo.Console(outputTemplate: outputTemplate)
-                .WriteTo.File("kaida.log");
+                .WriteTo.File("kaida.log", outputTemplate: outputTemplate);
 
             return logger.CreateLogger();
         }

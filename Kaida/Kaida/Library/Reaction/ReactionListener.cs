@@ -3,29 +3,32 @@ using System.Linq;
 using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.Entities;
+using Serilog;
 using StackExchange.Redis;
 
 namespace Kaida.Library.Reaction
 {
     public class ReactionListener : IReactionListener
     {
+        private readonly ILogger _logger;
         private readonly IDatabase _redis;
         private Dictionary<string, Dictionary<DiscordEmoji, ulong>> _listener;
+        private readonly List<int> _loadedListeners = new List<int>();
 
-        public ReactionListener(IDatabase redis)
+        public ReactionListener(ILogger logger, IDatabase redis)
         {
+            _logger = logger;
             _redis = redis;
         }
 
-        public bool IsListener(ulong id, BaseDiscordClient client)
+        public bool IsListener(ulong id, DiscordEmoji emoji, BaseDiscordClient client)
         {
-            LoadListeners(client);
-            return _listener.ContainsKey(id.ToString());
+            CheckShardListener(client);
+            return _listener.ContainsKey(id.ToString()) && _listener[id.ToString()].ContainsKey(emoji);
         }
 
         public Task AddRoleToListener(string messageId, DiscordEmoji emoji, DiscordRole role, BaseDiscordClient client)
         {
-            LoadListeners(client);
             if (_redis.SetMembers("MessageIds").All(e => e.ToString() != messageId))
             {
                 _redis.SetAdd("MessageIds", messageId);
@@ -57,6 +60,7 @@ namespace Kaida.Library.Reaction
         {
             var roleId = _listener[message.Id.ToString()][emoji];
             var role = channel.Guild.GetRole(roleId);
+            _logger.Information($"The role '{role.Name}' was revoked from '{user.Username}#{user.Discriminator}' on the guild '{channel.Guild.Name}' ({channel.Guild.Id}).");
             await ((DiscordMember)user).RevokeRoleAsync(role);
         }
 
@@ -64,10 +68,11 @@ namespace Kaida.Library.Reaction
         {
             var roleId = _listener[message.Id.ToString()][emoji];
             var role = channel.Guild.GetRole(roleId);
+            _logger.Information($"The role '{role.Name}' was granted to '{user.Username}#{user.Discriminator}' on the guild '{channel.Guild.Name}' ({channel.Guild.Id}).");
             await ((DiscordMember)user).GrantRoleAsync(role);
         }
 
-        private Task LoadListeners(BaseDiscordClient client)
+        public Task LoadListeners(BaseDiscordClient client)
         {
             var ids = _redis.SetMembers("MessageIds");
             _listener = new Dictionary<string, Dictionary<DiscordEmoji, ulong>>();
@@ -97,6 +102,15 @@ namespace Kaida.Library.Reaction
                 _listener.Add(id, emojiDictionary);
             }
 
+            return Task.CompletedTask;
+        }
+
+        private Task CheckShardListener(BaseDiscordClient client)
+        {
+            var shard = (DiscordClient) client;
+            if (_loadedListeners.Contains(shard.ShardId)) return Task.CompletedTask;
+            _loadedListeners.Add(shard.ShardId);
+            LoadListeners(client);
             return Task.CompletedTask;
         }
     }

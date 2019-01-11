@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
@@ -12,7 +13,7 @@ namespace Kaida.Handler
         private readonly ILogger _logger;
         private readonly IReactionListener _reactionListener;
         private readonly DiscordShardedClient _client;
-
+        
         public ClientEventHandler(DiscordShardedClient client, ILogger logger, IReactionListener reactionListener)
         {
             _client = client;
@@ -20,6 +21,7 @@ namespace Kaida.Handler
             _reactionListener = reactionListener;
 
             _client.Ready += Ready;
+            _client.GuildDownloadCompleted += GuildDownloadCompleted;
             _client.GuildAvailable += GuildAvailable;
             _client.GuildUnavailable += GuildUnavailable;
             _client.GuildMemberAdded += GuildMemberAdded;
@@ -36,6 +38,12 @@ namespace Kaida.Handler
         private Task Ready(ReadyEventArgs e)
         {
             _logger.Information("Client is ready!");
+            return Task.CompletedTask;
+        }
+
+        private Task GuildDownloadCompleted(GuildDownloadCompletedEventArgs e)
+        {
+            _logger.Information("Client downloaded all guilds successfully.");
             return Task.CompletedTask;
         }
 
@@ -89,20 +97,18 @@ namespace Kaida.Handler
 
         private Task MessageReactionAdded(MessageReactionAddEventArgs e)
         {
-            var emoji = DiscordEmoji.FromGuildEmote(e.Client, e.Emoji.Id);
-            _logger.Information($"'{e.User.Username}#{e.User.Discriminator}' has added the reaction '{emoji.Name}' to the message '{e.Message.Id}' in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Channel.Guild.Name}' ({e.Channel.Guild.Id}).");
             if (e.User.IsBot) return Task.CompletedTask;
-            if (!_reactionListener.IsListener(e.Message.Id, e.Client)) return Task.CompletedTask;
+            _logger.Information($"'{e.User.Username}#{e.User.Discriminator}' has added the reaction '{e.Emoji.Name}' to the message '{e.Message.Id}' in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Channel.Guild.Name}' ({e.Channel.Guild.Id}).");
+            if (!_reactionListener.IsListener(e.Message.Id, e.Emoji, e.Client)) return Task.CompletedTask;
             _reactionListener.GrantRole(e.Channel, e.Message, e.User, e.Emoji, e.Client);
             return Task.CompletedTask;
         }
 
         private Task MessageReactionRemoved(MessageReactionRemoveEventArgs e)
         {
-            var emoji = DiscordEmoji.FromGuildEmote(e.Client, e.Emoji.Id);
-            _logger.Information($"'{e.User.Username}#{e.User.Discriminator}' has removed the reaction '{emoji.Name}' from the message '{e.Message.Id}' in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Channel.Guild.Name}' ({e.Channel.Guild.Id}).");
             if (e.User.IsBot) return Task.CompletedTask;
-            if (!_reactionListener.IsListener(e.Message.Id, e.Client)) return Task.CompletedTask;
+            _logger.Information($"'{e.User.Username}#{e.User.Discriminator}' has revove the reaction '{e.Emoji.Name}' from the message '{e.Message.Id}' in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Channel.Guild.Name}' ({e.Channel.Guild.Id}).");
+            if (!_reactionListener.IsListener(e.Message.Id, e.Emoji, e.Client)) return Task.CompletedTask;
             _reactionListener.RevokeRole(e.Channel, e.Message, e.User, e.Emoji, e.Client);
             return Task.CompletedTask;
         }

@@ -120,6 +120,10 @@ namespace Kaida
                 _discordTokenAvailable = true;
                 _logger.Information("Successfully set the bot token into the database.");
             }
+            else
+            {
+                _logger.Information("Discord token is already set and will be used from the database.");
+            }
             
             Console.Write("Amount of sharded clients: ");
             var totalShards = Console.ReadLine();
@@ -127,7 +131,7 @@ namespace Kaida
 
             _logger.Information("Initializing the services setup...");
 
-            _reactionListener = new ReactionListener(_redis);
+            _reactionListener = new ReactionListener(_logger, _redis);
             _services = new ServiceCollection()
                 .AddSingleton(_redis)
                 .AddSingleton(_logger)
@@ -157,14 +161,10 @@ namespace Kaida
             _logger.Information("Setting up all configurations...");
             var ccfg = new CommandsNextConfiguration
             {
-                DmHelp = true,
                 Services = _serviceProvider,
                 PrefixResolver = PrefixResolverAsync,
-                EnableMentionPrefix = true,
-                CaseSensitive = false,
-                EnableDms = true,
-                UseDefaultCommandHandler = true,
-                IgnoreExtraArguments = false
+                EnableMentionPrefix = false,
+                EnableDms = false
             };
             _logger.Information("Commands configuration setup done.");
 
@@ -183,7 +183,6 @@ namespace Kaida
             _logger.Information("Setting up client event handler...");
             _clientEventHandler = new ClientEventHandler(_client, _logger, _reactionListener);
             
-
             foreach (var shard in _client.ShardClients.Values)
             {
                 _logger.Information($"Applying configs to shard {shard.ShardId}...");
@@ -199,7 +198,7 @@ namespace Kaida
             {
                 _logger.Information($"{cnextRegisteredCommand.Value} is registered!");
             }
-            
+
             await Task.Delay(Timeout.Infinite);
         }
 
