@@ -1,7 +1,5 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using DSharpPlus;
-using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 using Kaida.Library.Reaction;
 using Serilog;
@@ -61,13 +59,13 @@ namespace Kaida.Handler
 
         private Task GuildMemberAdded(GuildMemberAddEventArgs e)
         {
-            _logger.Information($"'{e.Member.Username}#{e.Member.Discriminator}' has joined the guild '{e.Guild.Name}' ({e.Guild.Id}).");
+            _logger.Information($"'{e.Member.Username}#{e.Member.Discriminator}' ({e.Member.Id}) has joined the guild '{e.Guild.Name}' ({e.Guild.Id}).");
             return Task.CompletedTask;
         }
 
         private Task GuildMemberRemoved(GuildMemberRemoveEventArgs e)
         {
-            _logger.Information($"'{e.Member.Username}#{e.Member.Discriminator}' has left the guild '{e.Guild.Name}' ({e.Guild.Id}).");
+            _logger.Information($"'{e.Member.Username}#{e.Member.Discriminator}' ({e.Member.Id}) has left the guild '{e.Guild.Name}' ({e.Guild.Id}).");
             return Task.CompletedTask;
         }
 
@@ -85,31 +83,31 @@ namespace Kaida.Handler
 
         private Task GuildBanAdded(GuildBanAddEventArgs e)
         {
-            _logger.Information($"'{e.Member.Username}#{e.Member.Discriminator}' has been banned from '{e.Guild.Name}' ({e.Guild.Id}).");
+            _logger.Information($"'{e.Member.Username}#{e.Member.Discriminator}' ({e.Member.Id}) has been banned from '{e.Guild.Name}' ({e.Guild.Id}).");
             return Task.CompletedTask;
         }
 
         private Task GuildBanRemoved(GuildBanRemoveEventArgs e)
         {
-            _logger.Information($"'{e.Member.Username}#{e.Member.Discriminator}' has been unbanned from '{e.Guild.Name}' ({e.Guild.Id}).");
+            _logger.Information($"'{e.Member.Username}#{e.Member.Discriminator}' ({e.Member.Id}) has been unbanned from '{e.Guild.Name}' ({e.Guild.Id}).");
             return Task.CompletedTask;
         }
 
         private Task MessageReactionAdded(MessageReactionAddEventArgs e)
         {
             if (e.User.IsBot) return Task.CompletedTask;
-            _logger.Information($"'{e.User.Username}#{e.User.Discriminator}' has added the reaction '{e.Emoji.Name}' to the message '{e.Message.Id}' in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Channel.Guild.Name}' ({e.Channel.Guild.Id}).");
+            var emojiName = e.Emoji.Name.ToString() == "??" ? "an unknown reaction" : $"the reaction '{e.Emoji.Name}' ({e.Emoji.Id})";
+            _logger.Information($"'{e.User.Username}#{e.User.Discriminator}' ({e.User.Id}) has added {emojiName} to the message '{e.Message.Id}' in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Channel.Guild.Name}' ({e.Channel.Guild.Id}).");
             if (!_reactionListener.IsListener(e.Message.Id, e.Emoji, e.Client)) return Task.CompletedTask;
-            _reactionListener.GrantRole(e.Channel, e.Message, e.User, e.Emoji, e.Client);
+            _reactionListener.ManageRole(e.Channel, e.Message, e.User, e.Emoji, e.Client);
             return Task.CompletedTask;
         }
 
         private Task MessageReactionRemoved(MessageReactionRemoveEventArgs e)
         {
             if (e.User.IsBot) return Task.CompletedTask;
-            _logger.Information($"'{e.User.Username}#{e.User.Discriminator}' has revove the reaction '{e.Emoji.Name}' from the message '{e.Message.Id}' in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Channel.Guild.Name}' ({e.Channel.Guild.Id}).");
-            if (!_reactionListener.IsListener(e.Message.Id, e.Emoji, e.Client)) return Task.CompletedTask;
-            _reactionListener.RevokeRole(e.Channel, e.Message, e.User, e.Emoji, e.Client);
+            var emojiName = e.Emoji.Name.ToString() == "??" ? "an unknown reaction" : $"the reaction '{e.Emoji.Name}' ({e.Emoji.Id})";
+            _logger.Information($"'{e.User.Username}#{e.User.Discriminator}' ({e.User.Id}) has revoked {emojiName} from the message '{e.Message.Id}' in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Channel.Guild.Name}' ({e.Channel.Guild.Id}).");
             return Task.CompletedTask;
         }
 

@@ -27,19 +27,18 @@ namespace Kaida.Library.Reaction
             return _listener.ContainsKey(id.ToString()) && _listener[id.ToString()].ContainsKey(emoji);
         }
 
-        public Task AddRoleToListener(string messageId, DiscordEmoji emoji, DiscordRole role, BaseDiscordClient client)
+        public Task AddRoleToListener(ulong messageId, DiscordEmoji emoji, DiscordRole role, BaseDiscordClient client)
         {
-            if (_redis.SetMembers("MessageIds").All(e => e.ToString() != messageId))
+            if (_redis.SetMembers("MessageIds").All(e => e.ToString() != messageId.ToString()))
             {
                 _redis.SetAdd("MessageIds", messageId);
             }
 
             _redis.HashSet($"Messages:{messageId}", new[] { new HashEntry(emoji.ToString(), role.Id.ToString()) });
-            _redis.SetAdd("MessageIds", messageId);
 
-            if (_listener.ContainsKey(messageId))
+            if (_listener.ContainsKey(messageId.ToString()))
             {
-                _listener[messageId].Add(emoji, role.Id);
+                _listener[messageId.ToString()].Add(emoji, role.Id);
                 return Task.CompletedTask;
             }
 
@@ -51,25 +50,38 @@ namespace Kaida.Library.Reaction
                 }
             };
 
-            _listener.Add(messageId, dictionary);
+            _listener.Add(messageId.ToString(), dictionary);
 
             return Task.CompletedTask;
         }
 
-        public async void RevokeRole(DiscordChannel channel, DiscordMessage message, DiscordUser user, DiscordEmoji emoji, BaseDiscordClient client)
+        public Task RemoveRoleFromListener(ulong messageId, DiscordEmoji emoji, BaseDiscordClient client)
         {
-            var roleId = _listener[message.Id.ToString()][emoji];
-            var role = channel.Guild.GetRole(roleId);
-            _logger.Information($"The role '{role.Name}' was revoked from '{user.Username}#{user.Discriminator}' on the guild '{channel.Guild.Name}' ({channel.Guild.Id}).");
-            await ((DiscordMember)user).RevokeRoleAsync(role);
+            if (_listener.ContainsKey(messageId.ToString()) && _listener[messageId.ToString()].ContainsKey(emoji)){
+                _redis.HashDelete($"Messages:{messageId}", emoji.ToString());
+                _listener[messageId.ToString()].Remove(emoji);
+                return Task.CompletedTask;
+            }
+            return Task.CompletedTask;
         }
 
-        public async void GrantRole(DiscordChannel channel, DiscordMessage message, DiscordUser user, DiscordEmoji emoji, BaseDiscordClient client)
+        public async void ManageRole(DiscordChannel channel, DiscordMessage message, DiscordUser user, DiscordEmoji emoji, BaseDiscordClient client)
         {
             var roleId = _listener[message.Id.ToString()][emoji];
             var role = channel.Guild.GetRole(roleId);
-            _logger.Information($"The role '{role.Name}' was granted to '{user.Username}#{user.Discriminator}' on the guild '{channel.Guild.Name}' ({channel.Guild.Id}).");
-            await ((DiscordMember)user).GrantRoleAsync(role);
+            var member = await channel.Guild.GetMemberAsync(user.Id);
+
+            if (member.Roles.Contains(role)) {
+                _logger.Information($"The role '{role.Name}' was revoked from '{user.Username}#{user.Discriminator}' on the guild '{channel.Guild.Name}' ({channel.Guild.Id}).");
+                await ((DiscordMember)user).RevokeRoleAsync(role);
+            }
+            else
+            {
+                _logger.Information($"The role '{role.Name}' was granted to '{user.Username}#{user.Discriminator}' on the guild '{channel.Guild.Name}' ({channel.Guild.Id}).");
+                await ((DiscordMember)user).GrantRoleAsync(role);
+            }
+
+            await message.DeleteReactionAsync(emoji, user);
         }
 
         public Task LoadListeners(BaseDiscordClient client)

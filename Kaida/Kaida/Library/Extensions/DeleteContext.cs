@@ -6,7 +6,7 @@ namespace Kaida.Library.Extensions
 {
     public static class DeleteContext
     {
-        public static async Task DeleteLastMessage(this DiscordChannel channel, int delay = 2)
+        public static async Task DeleteLastMessage(this DiscordChannel channel, double delay = 2)
         {
             await Task.Delay(TimeSpan.FromSeconds(delay).Milliseconds);
             var lastMessage = await channel.GetMessagesAsync(1);

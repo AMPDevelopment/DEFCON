@@ -10,6 +10,7 @@ using ImageMagick;
 using Kaida.Handler;
 using Kaida.Library.Logger;
 using Kaida.Library.Reaction;
+using Kaida.SESL;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using StackExchange.Redis;
@@ -24,13 +25,13 @@ namespace Kaida
         private CommandsNextExtension _cnext;
         private CommandEventHandler _commandEventHandler;
         private int _database;
-        private bool _discordTokenAvailable;
         private ILogger _logger;
         private IReactionListener _reactionListener;
         private IDatabase _redis;
         private IServiceProvider _serviceProvider;
         private IServiceCollection _services;
         private RedisValue _token;
+        private Sesl _sesl;
         private int _totalShards;
 
         private static void Main(string[] args)
@@ -70,10 +71,11 @@ namespace Kaida
             bool validInput;
             bool validRedisInstance;
 
+            _logger.Information("Initializing the Redis database setup...");
+            _logger.Warning("The application does not check if the redis database instance is already in use or not!");
+
             do
             {
-                _logger.Information("Initializing the Redis database setup...");
-                _logger.Warning("The application does not check if the redis database instance is already in use or not!");
                 Console.Write("Please enter your Redis database instance [0-15]: ");
                 var input = Console.ReadLine();
                 validInput = int.TryParse(input, out _database);
@@ -117,14 +119,13 @@ namespace Kaida
                 var newToken = Console.ReadLine();
                 _redis.StringSet("discordToken", newToken);
                 _token = newToken;
-                _discordTokenAvailable = true;
                 _logger.Information("Successfully set the bot token into the database.");
             }
             else
             {
                 _logger.Information("Discord token is already set and will be used from the database.");
             }
-            
+
             Console.Write("Amount of sharded clients: ");
             var totalShards = Console.ReadLine();
             _totalShards = int.Parse(totalShards);
@@ -132,10 +133,13 @@ namespace Kaida
             _logger.Information("Initializing the services setup...");
 
             _reactionListener = new ReactionListener(_logger, _redis);
+            _sesl = new Sesl();
+
             _services = new ServiceCollection()
                 .AddSingleton(_redis)
                 .AddSingleton(_logger)
-                .AddSingleton(_reactionListener);
+                .AddSingleton(_reactionListener)
+                .AddSingleton(_sesl);
             _serviceProvider = _services.BuildServiceProvider();
             _logger.Information("Successfully setup the services.");
 
@@ -170,19 +174,18 @@ namespace Kaida
 
             var icfg = new InteractivityConfiguration
             {
-                PaginationBehavior = TimeoutBehaviour.DeleteReactions,
-                PaginationTimeout = TimeSpan.FromMinutes(5),
+                PollBehaviour = DSharpPlus.Interactivity.Enums.PollBehaviour.DeleteEmojis,
                 Timeout = TimeSpan.FromMinutes(5)
             };
             _logger.Information("Interactivity configuration setup done.");
-            
+
             _logger.Information("Connecting all shards...");
             await _client.StartAsync();
             await _client.UpdateStatusAsync(activity, UserStatus.Online);
 
             _logger.Information("Setting up client event handler...");
             _clientEventHandler = new ClientEventHandler(_client, _logger, _reactionListener);
-            
+
             foreach (var shard in _client.ShardClients.Values)
             {
                 _logger.Information($"Applying configs to shard {shard.ShardId}...");

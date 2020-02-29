@@ -11,7 +11,6 @@ namespace Kaida.Library.Logger
                 .MinimumLevel.Verbose()
                 .WriteTo.Console(outputTemplate: outputTemplate)
                 .WriteTo.File("kaida.log", outputTemplate: outputTemplate);
-
             return logger.CreateLogger();
         }
     }

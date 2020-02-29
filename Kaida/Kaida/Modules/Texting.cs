@@ -8,6 +8,7 @@ using Serilog;
 
 namespace Kaida.Modules
 {
+    [RequirePermissions(Permissions.ManageMessages)]
     public class Texting : BaseCommandModule
     {
         private readonly ILogger _logger;
@@ -19,7 +20,6 @@ namespace Kaida.Modules
 
         [Command("Say")]
         [Priority(1)]
-        [RequirePermissions(Permissions.ManageMessages)]
         public async Task Say(CommandContext context, [RemainingText] string content)
         {
             await context.Channel.SendMessageAsync(content);
@@ -27,7 +27,6 @@ namespace Kaida.Modules
 
         [Command("Say")]
         [Priority(2)]
-        [RequirePermissions(Permissions.ManageMessages)]
         public async Task Say(CommandContext context, ulong messageId, [RemainingText] string content)
         {
             if (await context.Channel.GetMessageAsync(messageId) is DiscordMessage message)
@@ -38,7 +37,6 @@ namespace Kaida.Modules
 
         [Command("Embed")]
         [Priority(1)]
-        [RequirePermissions(Permissions.ManageMessages)]
         public async Task Embed(CommandContext context, [RemainingText] string content)
         {
             await context.EmbeddedFilteredMessage(content);
@@ -46,7 +44,6 @@ namespace Kaida.Modules
 
         [Command("Embed")]
         [Priority(2)]
-        [RequirePermissions(Permissions.ManageMessages)]
         public async Task Embed(CommandContext context, ulong messageId, [RemainingText] string content)
         {
             var message = await context.Channel.GetMessageAsync(messageId);

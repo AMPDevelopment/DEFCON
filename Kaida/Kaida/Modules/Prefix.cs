@@ -9,6 +9,7 @@ using StackExchange.Redis;
 namespace Kaida.Modules
 {
     [Group("Prefix")]
+    [RequirePermissions(Permissions.ManageGuild)]
     public class Prefix : BaseCommandModule
     {
         private readonly ILogger _logger;
@@ -21,7 +22,6 @@ namespace Kaida.Modules
         }
 
         [Command("change")]
-        [RequirePermissions(Permissions.ManageGuild)]
         public async Task ChangePrefix(CommandContext context, string prefix)
         {
             var oldPrefix = _redis.StringGet($"{context.Guild.Id}:CommandPrefix");

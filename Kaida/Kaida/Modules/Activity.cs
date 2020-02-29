@@ -7,6 +7,7 @@ using StackExchange.Redis;
 
 namespace Kaida.Modules
 {
+    [RequireOwner]
     public class Activity : BaseCommandModule
     {
         private readonly ILogger _logger;
@@ -19,7 +20,6 @@ namespace Kaida.Modules
         }
 
         [Command("Activity")]
-        [RequireOwner]
         public async Task Change(CommandContext context, [RemainingText] string content)
         {
             var activity = new DiscordActivity();
@@ -28,6 +28,9 @@ namespace Kaida.Modules
             activity.Name = items[1].Trim();
             switch (items[0].ToLowerInvariant().Trim())
             {
+                case "custom":
+                    activity.ActivityType = ActivityType.Custom;
+                    break;
                 case "playing":
                     activity.ActivityType = ActivityType.Playing;
                     break;
@@ -42,9 +45,10 @@ namespace Kaida.Modules
                     activity.ActivityType = ActivityType.ListeningTo;
                     break;
                 default:
-                    activity.ActivityType = ActivityType.Playing;
+                    activity.ActivityType = ActivityType.Custom;
                     break;
             }
+
             await context.Client.UpdateStatusAsync(activity);
         }
     }
