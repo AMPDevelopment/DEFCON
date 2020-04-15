@@ -6,10 +6,10 @@ using DSharpPlus.Entities;
 using Kaida.Library.Extensions;
 using Serilog;
 
-namespace Kaida.Modules
+namespace Kaida.Modules.Moderation
 {
-    [Group("Purge")]
     [RequirePermissions(Permissions.ManageMessages)]
+    [RequireBotPermissions(Permissions.ManageMessages)]
     public class Purge : BaseCommandModule
     {
         private readonly ILogger _logger;
@@ -18,10 +18,12 @@ namespace Kaida.Modules
         {
             _logger = logger;
         }
-        
+
+        [Command("Purge")]
+        [Priority(1)]
         public async Task PurgeMessages(CommandContext context, int amount)
         {
-            if (amount <= 100)
+            if (amount <= 1000)
             {
                 await context.Channel.DeleteLastMessages(amount + 1);
                 if (amount == 1)
@@ -33,11 +35,13 @@ namespace Kaida.Modules
                     await context.RespondAsync($"{context.User.Username} deleted {amount} messages.");
                 }
 
-                await context.Channel.DeleteLastMessage(5000);
+                var lastBotMessageId = await context.Channel.GetMessagesAsync(1);
+                await Task.Delay(5000);
+                await context.Channel.DeleteMessagesAsync(lastBotMessageId);
             }
             else
             {
-                await context.RespondAsync("You can't delete more than 100 messages at once.");
+                await context.RespondAsync("You can't delete more than 1000 messages at once.");
             }
         }
 

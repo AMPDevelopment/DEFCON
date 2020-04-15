@@ -26,11 +26,16 @@ namespace Kaida.Library.Extensions
         /// <param name="footer">The footer.</param>
         /// <param name="timestamp">The timestamp.</param>
         /// <returns>Returns a embeded message in the channel in which the call was triggered.</returns>
-        public static async Task EmbeddedMessage(this CommandContext context, string title = null,
+        public static async Task EmbeddedMessage(this CommandContext context, 
+            string title = null,
             string description = null,
-            DiscordColor? color = null, DiscordEmbedAuthor author = null, List<EmbedField> fields = null,
+            DiscordColor? color = null, 
+            DiscordEmbedAuthor author = null, 
+            List<EmbedField> fields = null,
             string url = null,
-            string thumbnailUrl = null, string image = null, DiscordEmbedFooter footer = null,
+            string thumbnailUrl = null, 
+            string image = null, 
+            DiscordEmbedFooter footer = null,
             DateTimeOffset? timestamp = null)
         {
             var embeddedMessage = new DiscordEmbedBuilder
@@ -82,7 +87,7 @@ namespace Kaida.Library.Extensions
             }
             else
             {
-                embeddedMessage.WithFooter(EmbedPrebuilder.SeslFooter().Text, EmbedPrebuilder.SeslFooter().IconUrl);
+                embeddedMessage.WithFooter();
             }
 
             if (timestamp != null)
@@ -108,8 +113,7 @@ namespace Kaida.Library.Extensions
                 fields = filteredfields;
             }
 
-            await context.EmbeddedMessage(title, description, fields: fields, thumbnailUrl: thumbnail, image: image,
-                url: url);
+            await context.EmbeddedMessage(title, description, fields: fields, thumbnailUrl: thumbnail, image: image, url: url);
         }
 
         public static async Task EmbeddedFilteredMessage(this DiscordMessage message, string content)

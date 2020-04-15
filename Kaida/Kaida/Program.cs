@@ -10,7 +10,6 @@ using ImageMagick;
 using Kaida.Handler;
 using Kaida.Library.Logger;
 using Kaida.Library.Reaction;
-using Kaida.SESL;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using StackExchange.Redis;
@@ -19,7 +18,6 @@ namespace Kaida
 {
     internal class Program
     {
-        private string[] _args;
         private DiscordShardedClient _client;
         private ClientEventHandler _clientEventHandler;
         private CommandsNextExtension _cnext;
@@ -31,7 +29,6 @@ namespace Kaida
         private IServiceProvider _serviceProvider;
         private IServiceCollection _services;
         private RedisValue _token;
-        private Sesl _sesl;
         private int _totalShards;
 
         private static void Main(string[] args)
@@ -41,7 +38,7 @@ namespace Kaida
 
             try
             {
-                new Program().Start(args, logger)
+                new Program().Start(logger)
                     .ConfigureAwait(false)
                     .GetAwaiter()
                     .GetResult();
@@ -52,18 +49,17 @@ namespace Kaida
             }
         }
 
-        private async Task Start(string[] args, ILogger logger)
+        private async Task Start(ILogger logger)
         {
-            _args = args;
             _logger = logger;
 
             _logger.Information("Initializing the setup...");
-            await Setup();
+            await Setup().ConfigureAwait(true);
 
             _logger.Information("Initializing the login...");
-            await Login();
+            await Login().ConfigureAwait(true);
 
-            await Task.Delay(-1);
+            await Task.Delay(Timeout.Infinite).ConfigureAwait(true);
         }
 
         private async Task Setup()
@@ -133,20 +129,18 @@ namespace Kaida
             _logger.Information("Initializing the services setup...");
 
             _reactionListener = new ReactionListener(_logger, _redis);
-            _sesl = new Sesl();
 
             _services = new ServiceCollection()
                 .AddSingleton(_redis)
                 .AddSingleton(_logger)
-                .AddSingleton(_reactionListener)
-                .AddSingleton(_sesl);
+                .AddSingleton(_reactionListener);
             _serviceProvider = _services.BuildServiceProvider();
             _logger.Information("Successfully setup the services.");
 
             OpenCL.IsEnabled = false;
             _logger.Information("Disabled GPU acceleration.");
 
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(true);
         }
 
         private async Task Login()
@@ -158,7 +152,9 @@ namespace Kaida
                 Token = _token,
                 TokenType = TokenType.Bot,
                 ShardCount = _totalShards,
-                DateTimeFormat = "dd-MM-yyyy HH:mm"
+                DateTimeFormat = "dd-MM-yyyy HH:mm",
+                AutoReconnect = true,
+                
             });
             _logger.Information("Successfully setup the client.");
 
@@ -168,7 +164,8 @@ namespace Kaida
                 Services = _serviceProvider,
                 PrefixResolver = PrefixResolverAsync,
                 EnableMentionPrefix = false,
-                EnableDms = false
+                EnableDms = true,
+                DmHelp = true
             };
             _logger.Information("Commands configuration setup done.");
 
@@ -180,11 +177,11 @@ namespace Kaida
             _logger.Information("Interactivity configuration setup done.");
 
             _logger.Information("Connecting all shards...");
-            await _client.StartAsync();
-            await _client.UpdateStatusAsync(activity, UserStatus.Online);
+            await _client.StartAsync().ConfigureAwait(true);
+            await _client.UpdateStatusAsync(activity, UserStatus.Online).ConfigureAwait(true);
 
             _logger.Information("Setting up client event handler...");
-            _clientEventHandler = new ClientEventHandler(_client, _logger, _reactionListener);
+            _clientEventHandler = new ClientEventHandler(_client, _logger, _redis, _reactionListener);
 
             foreach (var shard in _client.ShardClients.Values)
             {
@@ -201,16 +198,14 @@ namespace Kaida
             {
                 _logger.Information($"{cnextRegisteredCommand.Value} is registered!");
             }
-
-            await Task.Delay(Timeout.Infinite);
         }
 
         public Task<int> PrefixResolverAsync(DiscordMessage msg)
         {
             var prefix = _redis.StringGet($"{msg.Channel.Guild.Id}:CommandPrefix");
             if (!prefix.IsNullOrEmpty) return Task.FromResult(msg.GetStringPrefixLength(prefix));
-            _redis.StringSet($"{msg.Channel.Guild.Id}:CommandPrefix", Configuration.Prefix);
-            return Task.FromResult(msg.GetStringPrefixLength(Configuration.Prefix));
+            _redis.StringSet($"{msg.Channel.Guild.Id}:CommandPrefix", "$");
+            return Task.FromResult(msg.GetStringPrefixLength("$"));
         }
     }
 }
