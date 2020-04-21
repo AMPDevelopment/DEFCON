@@ -25,11 +25,13 @@ namespace Kaida.Handler
 
         public ClientEventHandler(DiscordShardedClient client, ILogger logger, IDatabase redis, IReactionListener reactionListener)
         {
+
             _client = client;
             _logger = logger;
             _redis = redis;
             _reactionListener = reactionListener;
 
+            _logger.Information("Register events...");
             _client.Ready += Ready;
             _client.GuildDownloadCompleted += GuildDownloadCompleted;
             _client.GuildAvailable += GuildAvailable;
@@ -67,6 +69,7 @@ namespace Kaida.Handler
             _client.SocketErrored += SocketErrored;
             _client.ClientErrored += ClientErrored;
             _client.UnknownEvent += UnknownEvent;
+            _logger.Information("Registered all events!");
         }
 
         private Task Ready(ReadyEventArgs e)
@@ -184,15 +187,10 @@ namespace Kaida.Handler
                 {
                     var channel = e.Guild.GetChannel((ulong)nicknameEventId);
                     var avatarUrl = e.Member.AvatarUrl;
+                    var title = ":memo: Nickname changed";
                     var description = new StringBuilder()
                         .AppendLine($"Username: {e.Member.GetUsertag()}")
                         .AppendLine($"Identity: {e.Member.Id}").ToString();
-
-                    var author = new DiscordEmbedBuilder.EmbedAuthor()
-                    {
-                        IconUrl = avatarUrl,
-                        Name = "Nickname changed"
-                    };
 
                     var fields = new List<EmbedField>(){
                         new EmbedField()
@@ -209,7 +207,7 @@ namespace Kaida.Handler
                         }
                     };
 
-                    channel.SendEmbedMessageAsync(description: description, color: DiscordColor.Orange, author: author, fields: fields, thumbnailUrl: avatarUrl, timestamp: DateTimeOffset.UtcNow);
+                    channel.SendEmbedMessageAsync(title: title, description: description, color: DiscordColor.CornflowerBlue, fields: fields, thumbnailUrl: avatarUrl, timestamp: DateTimeOffset.UtcNow);
                 }
                 _logger.Information($"'{e.Member.GetUsertag()}' ({e.Member.Id}) has changed there nickname from '{before}' to '{after}' on '{e.Guild.Name}' ({e.Guild.Id}).");
                 return Task.CompletedTask;
@@ -250,91 +248,122 @@ namespace Kaida.Handler
 
         private Task MessageUpdated(MessageUpdateEventArgs e)
         {
-            if (e.Message.Author.IsCurrent || e.Message.Author.IsBot) return Task.CompletedTask;
+            if (e.Message.Author.IsBot) return Task.CompletedTask;
 
             var messageEventId = _redis.StringGet($"{e.Guild.Id}:Logs:MessageEvent");
+            var guild = e.Guild;
+            var channel = e.Channel;
             var message = e.Message;
-            var member = e.Guild.GetMemberAsync(message.Author.Id).Result;
+            var messageAuthor = message.Author;
+            var member = guild.GetMemberAsync(messageAuthor.Id).Result;
+
+            if (channel.IsPrivate)
+            {
+                _logger.Information($"The message ({message.Id}) from '{messageAuthor.GetUsertag()}' ({messageAuthor.Id}) was updated in the direct message.");
+                return Task.CompletedTask;
+            }
 
             if (!string.IsNullOrWhiteSpace(messageEventId))
             {
-                var logChannel = e.Guild.GetChannel((ulong)messageEventId);
-                var avatarUrl = e.Message.Author.AvatarUrl;
-                var title = ":memo: Message updated";
-                var description = new StringBuilder()
-                    .AppendLine($"Message sent by {message.Author.Mention} updated in {message.Channel.Mention}.")
-                    .AppendLine($"[Jump to message]({message.JumpLink.ToString()})").ToString();
-                var before = e.MessageBefore.Content;
-                var after = message.Content;
+                var logChannel = guild.GetChannel((ulong)messageEventId);
+                if (channel != logChannel)
+                {
+                    var avatarUrl = messageAuthor.AvatarUrl;
+                    var title = ":memo: Message updated";
+                    var description = new StringBuilder()
+                        .AppendLine($"Message sent by {messageAuthor.Mention} updated in {channel.Mention}.")
+                        .AppendLine($"[Jump to message]({message.JumpLink.ToString()})").ToString();
 
-                var fields = new List<EmbedField>(){
+                    var contentBefore = e.MessageBefore.Content;
+                    var contentNow = message.Content;
+
+                    var fields = new List<EmbedField>(){
                     new EmbedField()
                     {
                         Inline = false,
                         Name = "Before",
-                        Value = before
+                        Value = contentBefore
                     },
                     new EmbedField()
                     {
                         Inline = false,
                         Name = "After",
-                        Value = after
+                        Value = contentNow
                     }
                 };
 
-                var footer = new DiscordEmbedBuilder.EmbedFooter()
-                {
-                    Text = $"Author: {message.Author.Id} | Message Id: {message.Id}"
-                };
+                    var footer = new DiscordEmbedBuilder.EmbedFooter()
+                    {
+                        Text = $"Author: {messageAuthor.Id} | Message Id: {message.Id}"
+                    };
 
-                logChannel.SendEmbedMessageAsync(title: title, description: description, color: DiscordColor.Orange, fields: fields, thumbnailUrl: avatarUrl, footer: footer, timestamp: DateTimeOffset.UtcNow);
+                    logChannel.SendEmbedMessageAsync(title: title, description: description, color: DiscordColor.Orange, fields: fields, thumbnailUrl: avatarUrl, footer: footer, timestamp: DateTimeOffset.UtcNow);
+                }
             }
-            _logger.Information($"The message ({message.Id}) from '{message.Author.GetUsertag()}' ({message.Author.Id}) was updated in '{message.Channel.Name}' ({message.Channel.Id}) on '{e.Guild.Name}' ({e.Guild.Id}).");
+
+            _logger.Information($"The message ({message.Id}) from '{messageAuthor.GetUsertag()}' ({messageAuthor.Id}) was updated in '{channel.Name}' ({channel.Id}) on '{guild.Name}' ({guild.Id}).");
             return Task.CompletedTask;
         }
 
         private Task MessageDeleted(MessageDeleteEventArgs e)
         {
-            if (e.Message.Author.IsCurrent || e.Message.Author.IsBot) return Task.CompletedTask;
+            if (e.Message.Author.IsBot) return Task.CompletedTask;
 
+            var guildPrefix = _redis.StringGet($"{e.Guild.Id}:CommandPrefix");
             var messageEventId = _redis.StringGet($"{e.Guild.Id}:Logs:MessageEvent");
+            var guild = e.Guild;
+            var channel = e.Channel;
             var message = e.Message;
-            var member = e.Guild.GetMemberAsync(message.Author.Id).Result;
+            var messageAuthor = message.Author;
+            var member = e.Guild.GetMemberAsync(messageAuthor.Id).Result;
             var deletedMessage = message.Content;
 
-            if (!string.IsNullOrWhiteSpace(messageEventId))
+            if (channel.IsPrivate)
             {
-                var logChannel = e.Guild.GetChannel((ulong)messageEventId);
-                var attachmentCount = message.Attachments.Count;
-                var avatarUrl = e.Message.Author.AvatarUrl;
-                var title = ":wastebasket: Message deleted";
-                var description = $"Message sent by {message.Author.Mention} deleted in {message.Channel.Mention}.";
-                var singleImage = string.Empty;
+                _logger.Information($"The message ({message.Id}) from '{messageAuthor.GetUsertag()}' ({messageAuthor.Id}) was updated in the direct message.");
+                return Task.CompletedTask;
+            }
 
-                var fields = new List<EmbedField>(){
-                    new EmbedField()
+            if (!deletedMessage.StartsWith(guildPrefix))
+            {
+                if (!string.IsNullOrWhiteSpace(messageEventId))
+                {
+                    var logChannel = guild.GetChannel((ulong)messageEventId);
+                    if (channel != logChannel)
                     {
-                        Inline = false,
-                        Name = "Content",
-                        Value = deletedMessage
+                        var attachmentCount = message.Attachments.Count;
+                        var avatarUrl = e.Message.Author.AvatarUrl;
+                        var title = ":wastebasket: Message deleted";
+                        var description = $"Message sent by {messageAuthor.Mention} deleted in {channel.Mention}.";
+                        var singleImage = string.Empty;
+
+                        var fields = new List<EmbedField>(){
+                        new EmbedField()
+                        {
+                            Inline = false,
+                            Name = "Content",
+                            Value = deletedMessage
+                        }
+                    };
+
+                        var footer = new DiscordEmbedBuilder.EmbedFooter()
+                        {
+                            Text = $"Author: {messageAuthor.Id} | Message Id: {message.Id}"
+                        };
+
+                        if (!attachmentCount.Equals(0))
+                        {
+                            var attachments = new Dictionary<string, Stream>();
+                        }
+                        else
+                        {
+                            logChannel.SendEmbedMessageAsync(title: title, description: description, color: DiscordColor.IndianRed, fields: fields, thumbnailUrl: avatarUrl, image: singleImage, footer: footer, timestamp: DateTimeOffset.UtcNow);
+                        }
                     }
-                };
-
-                var footer = new DiscordEmbedBuilder.EmbedFooter()
-                {
-                    Text = $"Author: {message.Author.Id} | Message Id: {message.Id}"
-                };
-
-                if (!attachmentCount.Equals(0))
-                {
-                    var attachments = new Dictionary<string, Stream>();
-                }
-                else
-                {
-                    logChannel.SendEmbedMessageAsync(title: title, description: description, color: DiscordColor.IndianRed, fields: fields, thumbnailUrl: avatarUrl, image: singleImage, footer: footer, timestamp: DateTimeOffset.UtcNow);
                 }
             }
-            _logger.Information($"The message ({message.Id}) from '{message.Author.GetUsertag()}' ({message.Author.Id}) was deleted in '{message.Channel.Name}' ({message.Channel.Id}) on '{e.Guild.Name}' ({e.Guild.Id}).");
+            
+            _logger.Information($"The message ({message.Id}) from '{messageAuthor.GetUsertag()}' ({messageAuthor.Id}) was deleted in '{channel.Name}' ({channel.Id}) on '{guild.Name}' ({guild.Id}).");
             return Task.CompletedTask;
         }
 
@@ -347,18 +376,47 @@ namespace Kaida.Handler
         private Task MessageReactionAdded(MessageReactionAddEventArgs e)
         {
             if (e.User.IsBot) return Task.CompletedTask;
+
+            var client = e.Client;
+            var guild = e.Guild;
+            var channel = e.Channel;
+            var message = e.Message;
+            var reactionUser = e.User;
+            var emoji = e.Emoji;
             var emojiName = e.Emoji.Name.ToString() == "??" ? "an unknown reaction" : $"the reaction '{e.Emoji.Name}' ({e.Emoji.Id})";
-            _logger.Information($"'{e.User.GetUsertag()}' ({e.User.Id}) has added {emojiName} to the message '{e.Message.Id}' in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Channel.Guild.Name}' ({e.Channel.Guild.Id}).");
-            if (!_reactionListener.IsListener(e.Message.Id, e.Emoji, e.Client)) return Task.CompletedTask;
-            _reactionListener.ManageRole(e.Channel, e.Message, e.User, e.Emoji, e.Client);
+
+            if (channel.IsPrivate)
+            {
+                _logger.Information($"{reactionUser.GetUsertag()} ({reactionUser.Id}) has added {emojiName} to the message '{e.Message.Id}' in the direct message.");
+                return Task.CompletedTask;
+            }
+
+            _logger.Information($"'{reactionUser.GetUsertag()}' ({reactionUser.Id}) has added {emojiName} to the message '{message.Id}' in the channel '{channel.Name}' ({channel.Id}) on the guild '{guild.Name}' ({guild.Id}).");
+            if (!_reactionListener.IsListener(message.Id, emoji, client)) return Task.CompletedTask;
+
+            _reactionListener.ManageRole(channel, message, reactionUser, emoji, client);
             return Task.CompletedTask;
         }
 
         private Task MessageReactionRemoved(MessageReactionRemoveEventArgs e)
         {
             if (e.User.IsBot) return Task.CompletedTask;
+
+            var client = e.Client;
+            var guild = e.Guild;
+            var channel = e.Channel;
+            var message = e.Message;
+            var reactionUser = e.User;
+            var emoji = e.Emoji;
             var emojiName = e.Emoji.Name.ToString() == "??" ? "an unknown reaction" : $"the reaction '{e.Emoji.Name}' ({e.Emoji.Id})";
-            _logger.Information($"'{e.User.GetUsertag()}' ({e.User.Id}) has revoked {emojiName} from the message '{e.Message.Id}' in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Channel.Guild.Name}' ({e.Channel.Guild.Id}).");
+
+            if (channel.IsPrivate)
+            {
+                _logger.Information($"{reactionUser.GetUsertag()} ({reactionUser.Id}) has removed {emojiName} to the message '{e.Message.Id}' in the direct message.");
+                return Task.CompletedTask;
+            }
+
+            _logger.Information($"'{reactionUser.GetUsertag()}' ({reactionUser.Id}) has removed {emojiName} to the message '{message.Id}' in the channel '{channel.Name}' ({channel.Id}) on the guild '{guild.Name}' ({guild.Id}).");
             return Task.CompletedTask;
         }
 

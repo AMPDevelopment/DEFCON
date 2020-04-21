@@ -1,6 +1,7 @@
 ﻿using System.Threading.Tasks;
 using DSharpPlus.CommandsNext;
 using Kaida.Library.Extensions;
+using Kaida.Library.Formatter;
 using Serilog;
 
 namespace Kaida.Handler
@@ -21,29 +22,54 @@ namespace Kaida.Handler
 
         private async Task CommandExecuted(CommandExecutionEventArgs e)
         {
-            
-            if (e.Context.Channel != null) 
+            var command = e.Command;
+            var context = e.Context;
+            var guild = context.Guild;
+            var channel = context.Channel;
+            var message = context.Message;
+            var user = context.User;
+
+            if (!channel.IsPrivate)
             {
-                _logger.Information($"The command '{e.Command.Name}' has been executed by '{e.Context.User.Username}#{e.Context.User.Discriminator}' in the channel '{e.Context.Channel.Name}' ({e.Context.Channel.Id}) on the guild '{e.Context.Guild.Name}' ({e.Context.Guild.Id}).");
-                await e.Context.Channel.DeleteMessageByIdAsync(e.Context.Message.Id); 
+                if (channel != null && user != null)
+                {
+                    _logger.Information($"The command '{command.Name}' has been executed by '{user.GetUsertag()}' in the channel '{channel.Name}' ({channel.Id}) on the guild '{guild.Name}' ({guild.Id}).");
+                    await channel.DeleteMessageByIdAsync(message.Id);
+                }
+                else
+                {
+                    _logger.Information($"The command '{command.Name}' has been executed by an unknown user in a deleted channel on a unknown guild.");
+                }
             }
             else
             {
-                _logger.Information($"The command '{e.Command.Name}' has been executed by an unknown user in a deleted channel on a unknown guild.");
+                _logger.Information($"The command '{command.Name}' has been executed by '{user.GetUsertag()}' ({user.Id}) in the direct message.");
             }
         }
 
         private async Task CommandErrored(CommandErrorEventArgs e)
         {
+            var command = e.Command;
+            var context = e.Context;
+            var guild = context.Guild;
+            var channel = context.Channel;
+            var user = context.User;
             
-            if (e.Context.Channel != null)
+            if (!channel.IsPrivate)
             {
-                await e.Context.Channel.DeleteMessageByIdAsync(e.Context.Message.Id);
-                _logger.Error(e.Exception, $"The command '{e.Command.Name}' has been errored by '{e.Context.User.Username}#{e.Context.User.Discriminator}' in the channel '{e.Context.Channel.Name}' ({e.Context.Channel.Id}) on the guild '{e.Context.Guild.Name}' ({e.Context.Guild.Id}).");
+                if (channel != null && user != null)
+                {
+                    await channel.DeleteMessageByIdAsync(context.Message.Id);
+                    _logger.Error(e.Exception, $"The command '{command.Name}' has been errored by '{user.GetUsertag()}' in the channel '{channel.Name}' ({channel.Id}) on the guild '{guild.Name}' ({guild.Id}).");
+                }
+                else
+                {
+                    _logger.Error(e.Exception, $"The command '{command.Name}' has been errored by an unknown user in a deleted channel on a unknown guild.");
+                }
             }
             else
             {
-                _logger.Error(e.Exception, $"The command '{e.Command.Name}' has been errored by an unknown user in a deleted channel on a unknown guild.");
+                _logger.Information($"The command '{command.Name}' has been errored by '{user.GetUsertag()}' ({user.Id}) in the direct message.");
             }
         }
     }

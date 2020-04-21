@@ -8,6 +8,7 @@ using DSharpPlus.Entities;
 using DSharpPlus.Interactivity;
 using ImageMagick;
 using Kaida.Handler;
+using Kaida.Library.Formatter;
 using Kaida.Library.Logger;
 using Kaida.Library.Reaction;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,7 +19,7 @@ namespace Kaida
 {
     internal class Program
     {
-        private string[] args;
+        private string[] _args;
         private DiscordShardedClient _client;
         private ClientEventHandler _clientEventHandler;
         private CommandsNextExtension _cnext;
@@ -30,16 +31,15 @@ namespace Kaida
         private IServiceProvider _serviceProvider;
         private IServiceCollection _services;
         private RedisValue _token;
-        private int _totalShards;
 
-        public static void Main()
+        public static void Main(string[] args)
         {
             var logger = LoggerFactory.CreateLogger();
             logger.Information("Starting...");
 
             try
             {
-                new Program().Start(logger)
+                new Program().Start(args, logger)
                     .ConfigureAwait(false)
                     .GetAwaiter()
                     .GetResult();
@@ -52,8 +52,9 @@ namespace Kaida
             }
         }
 
-        private async Task Start(ILogger logger)
+        private async Task Start(string[] args, ILogger logger)
         {
+            _args = args;
             _logger = logger;
             _logger.Information("Initializing the setup...");
             await Setup().ConfigureAwait(true);
@@ -68,7 +69,6 @@ namespace Kaida
             bool validRedisInstance;
 
             _logger.Information("Initializing the Redis database setup...");
-
             _logger.Warning("The application does not check if the redis database instance is already in use or not!");
 
             do
@@ -123,9 +123,6 @@ namespace Kaida
                 _logger.Information("Discord token is already set and will be used from the database.");
             }
 
-            Console.Write("Amount of sharded clients: ");
-            var totalShards = Console.ReadLine();
-            _totalShards = int.Parse(totalShards);
             _logger.Information("Initializing the services setup...");
             _reactionListener = new ReactionListener(_logger, _redis);
 
@@ -150,13 +147,12 @@ namespace Kaida
             {
                 Token = _token,
                 TokenType = TokenType.Bot,
-                ShardCount = _totalShards,
                 DateTimeFormat = "dd-MM-yyyy HH:mm",
                 AutoReconnect = true,
                 MessageCacheSize = 4086,
                 ReconnectIndefinitely = true,
                 HttpTimeout = Timeout.InfiniteTimeSpan,
-                GatewayCompressionLevel = GatewayCompressionLevel.Payload                
+                GatewayCompressionLevel = GatewayCompressionLevel.Payload
             });
 
             _logger.Information("Successfully setup the client.");
@@ -207,9 +203,17 @@ namespace Kaida
 
         public Task<int> PrefixResolverAsync(DiscordMessage msg)
         {
-            var prefix = _redis.StringGet($"{msg.Channel.Guild.Id}:CommandPrefix");
-            if (!prefix.IsNullOrEmpty) return Task.FromResult(msg.GetStringPrefixLength(prefix));
-            _redis.StringSet($"{msg.Channel.Guild.Id}:CommandPrefix", "$");
+            if (!msg.Channel.IsPrivate)
+            {
+                var prefix = _redis.StringGet($"{msg.Channel.Guild.Id}:CommandPrefix");
+                if (!string.IsNullOrWhiteSpace(prefix))
+                {
+                    return Task.FromResult(msg.GetStringPrefixLength(prefix));
+                }
+
+                _redis.StringSet($"{msg.Channel.Guild.Id}:CommandPrefix", "$");
+            }
+
             return Task.FromResult(msg.GetStringPrefixLength("$"));
         }
     }
