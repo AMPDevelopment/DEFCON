@@ -1,4 +1,4 @@
-# Kaida
+# Kaida [<img src="https://github.com/OnlyOneCookie/Kaida/workflows/.NET%20Core/badge.svg?branch=master">](https://github.com/OnlyOneCookie/Kaida/actions)
 [<img src="http://hits.dwyl.com/OnlyOneCookie/Kaida.svg">](https://github.com/OnlyOneCookie/Kaida) [<img src="https://img.shields.io/github/license/OnlyOneCookie/Kaida.svg?style=flat-square">](https://github.com/OnlyOneCookie/Kaida/blob/master/license.md)  
 
 ## About
