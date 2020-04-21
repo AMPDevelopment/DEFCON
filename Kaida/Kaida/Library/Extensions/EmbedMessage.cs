@@ -29,13 +29,13 @@ namespace Kaida.Library.Extensions
         public static async Task EmbeddedMessage(this CommandContext context, 
             string title = null,
             string description = null,
-            DiscordColor? color = null, 
-            DiscordEmbedAuthor author = null, 
+            DiscordColor? color = null,
+            DiscordEmbedBuilder.EmbedAuthor author = null, 
             List<EmbedField> fields = null,
             string url = null,
             string thumbnailUrl = null, 
-            string image = null, 
-            DiscordEmbedFooter footer = null,
+            string image = null,
+            DiscordEmbedBuilder.EmbedFooter footer = null,
             DateTimeOffset? timestamp = null)
         {
             var embeddedMessage = new DiscordEmbedBuilder
@@ -58,7 +58,7 @@ namespace Kaida.Library.Extensions
 
             if (author != null)
             {
-                embeddedMessage.WithAuthor(author.Name, author.Url.ToString(), author.IconUrl.ToString());
+                embeddedMessage.Author = author;
             }
 
             if (!string.IsNullOrWhiteSpace(url))
@@ -83,11 +83,7 @@ namespace Kaida.Library.Extensions
 
             if (footer != null)
             {
-                embeddedMessage.WithFooter(footer.Text, footer.IconUrl.ToString());
-            }
-            else
-            {
-                embeddedMessage.WithFooter();
+                embeddedMessage.Footer = footer;
             }
 
             if (timestamp != null)

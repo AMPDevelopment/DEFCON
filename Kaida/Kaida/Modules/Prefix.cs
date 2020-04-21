@@ -21,7 +21,7 @@ namespace Kaida.Modules
             _redis = redis;
         }
 
-        [Command("change")]
+        [Command("Change")]
         public async Task ChangePrefix(CommandContext context, string prefix)
         {
             var oldPrefix = _redis.StringGet($"{context.Guild.Id}:CommandPrefix");

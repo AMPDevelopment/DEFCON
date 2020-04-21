@@ -18,6 +18,7 @@ namespace Kaida
 {
     internal class Program
     {
+        private string[] args;
         private DiscordShardedClient _client;
         private ClientEventHandler _clientEventHandler;
         private CommandsNextExtension _cnext;
@@ -31,7 +32,7 @@ namespace Kaida
         private RedisValue _token;
         private int _totalShards;
 
-        private static void Main(string[] args)
+        public static void Main()
         {
             var logger = LoggerFactory.CreateLogger();
             logger.Information("Starting...");
@@ -46,19 +47,18 @@ namespace Kaida
             catch (Exception e)
             {
                 logger.Fatal(e, "Rest in peace!");
+                System.Diagnostics.Process.Start(System.AppDomain.CurrentDomain.FriendlyName);
+                System.Environment.Exit(1);
             }
         }
 
         private async Task Start(ILogger logger)
         {
             _logger = logger;
-
             _logger.Information("Initializing the setup...");
             await Setup().ConfigureAwait(true);
-
             _logger.Information("Initializing the login...");
             await Login().ConfigureAwait(true);
-
             await Task.Delay(Timeout.Infinite).ConfigureAwait(true);
         }
 
@@ -68,6 +68,7 @@ namespace Kaida
             bool validRedisInstance;
 
             _logger.Information("Initializing the Redis database setup...");
+
             _logger.Warning("The application does not check if the redis database instance is already in use or not!");
 
             do
@@ -125,28 +126,26 @@ namespace Kaida
             Console.Write("Amount of sharded clients: ");
             var totalShards = Console.ReadLine();
             _totalShards = int.Parse(totalShards);
-
             _logger.Information("Initializing the services setup...");
-
             _reactionListener = new ReactionListener(_logger, _redis);
 
             _services = new ServiceCollection()
                 .AddSingleton(_redis)
                 .AddSingleton(_logger)
                 .AddSingleton(_reactionListener);
+
             _serviceProvider = _services.BuildServiceProvider();
             _logger.Information("Successfully setup the services.");
-
             OpenCL.IsEnabled = false;
             _logger.Information("Disabled GPU acceleration.");
-
             await Task.CompletedTask.ConfigureAwait(true);
         }
 
         private async Task Login()
         {
             _logger.Information("Initializing the client setup...");
-            var activity = new DiscordActivity("OnlyOneCookie", ActivityType.Watching);
+            var activity = new DiscordActivity("ur mom is pretty gae", ActivityType.Custom);
+
             _client = new DiscordShardedClient(new DiscordConfiguration
             {
                 Token = _token,
@@ -154,32 +153,37 @@ namespace Kaida
                 ShardCount = _totalShards,
                 DateTimeFormat = "dd-MM-yyyy HH:mm",
                 AutoReconnect = true,
-                
+                MessageCacheSize = 4086,
+                ReconnectIndefinitely = true,
+                HttpTimeout = Timeout.InfiniteTimeSpan,
+                GatewayCompressionLevel = GatewayCompressionLevel.Payload                
             });
-            _logger.Information("Successfully setup the client.");
 
+            _logger.Information("Successfully setup the client.");
             _logger.Information("Setting up all configurations...");
+
             var ccfg = new CommandsNextConfiguration
             {
                 Services = _serviceProvider,
                 PrefixResolver = PrefixResolverAsync,
                 EnableMentionPrefix = false,
                 EnableDms = true,
-                DmHelp = true
+                DmHelp = true,
+                EnableDefaultHelp = true
             };
+
             _logger.Information("Commands configuration setup done.");
 
             var icfg = new InteractivityConfiguration
             {
-                PollBehaviour = DSharpPlus.Interactivity.Enums.PollBehaviour.DeleteEmojis,
-                Timeout = TimeSpan.FromMinutes(5)
+                PollBehaviour = DSharpPlus.Interactivity.Enums.PollBehaviour.KeepEmojis,
+                Timeout = TimeSpan.FromMinutes(2)
             };
-            _logger.Information("Interactivity configuration setup done.");
 
+            _logger.Information("Interactivity configuration setup done.");
             _logger.Information("Connecting all shards...");
             await _client.StartAsync().ConfigureAwait(true);
             await _client.UpdateStatusAsync(activity, UserStatus.Online).ConfigureAwait(true);
-
             _logger.Information("Setting up client event handler...");
             _clientEventHandler = new ClientEventHandler(_client, _logger, _redis, _reactionListener);
 
@@ -192,6 +196,7 @@ namespace Kaida
                 _logger.Information($"Settings up command event handler for the shard {shard.ShardId}...");
                 _commandEventHandler = new CommandEventHandler(_cnext, _logger);
                 _logger.Information($"Setup for shard {shard.ShardId} done.");
+                await shard.InitializeAsync();
             }
 
             foreach (var cnextRegisteredCommand in _cnext.RegisteredCommands)
