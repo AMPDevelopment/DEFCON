@@ -69,9 +69,6 @@ namespace Kaida.Modules.Miscellaneous
                 Text = $"Requested by {context.User.GetUsertag()} | {context.User.Id}"
             };
 
-            
-            
-
             var fields = new List<EmbedField>();
 
             fields.Add(new EmbedField

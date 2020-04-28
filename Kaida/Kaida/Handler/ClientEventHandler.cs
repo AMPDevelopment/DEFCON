@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.Entities;
@@ -22,6 +23,8 @@ namespace Kaida.Handler
         private readonly IDatabase _redis;
         private readonly IReactionListener _reactionListener;
         private readonly DiscordShardedClient _client;
+        private Timer _timer;
+        private int _activityIndex = 0;
 
         public ClientEventHandler(DiscordShardedClient client, ILogger logger, IDatabase redis, IReactionListener reactionListener)
         {
@@ -75,6 +78,42 @@ namespace Kaida.Handler
         private Task Ready(ReadyEventArgs e)
         {
             _logger.Information("Client is ready!");
+            
+            _timer = new Timer(async _ =>
+            {
+                var guilds = e.Client.Guilds.Values.ToList();
+                var guildsCount = guilds.Count;
+                var totalUsers = new List<DiscordUser>();
+                var totalBots = new List<DiscordUser>();
+
+                foreach (var guild in guilds)
+                {
+                    totalUsers.AddRange(guild.GetAllMembersAsync().Result.Where(x => x.IsBot == false));
+                    totalBots.AddRange(guild.GetAllMembersAsync().Result.Where(x => x.IsBot == true));
+                }
+
+                var uniqueUsers = totalUsers.Distinct().ToList().Count;
+                var uniqueBots = totalBots.Distinct().ToList().Count;
+
+                var activities = new List<DiscordActivity>()
+                {
+                    new DiscordActivity()
+                    {
+                        ActivityType = ActivityType.Watching,
+                        Name = $"{guildsCount} servers"
+                    },
+                    new DiscordActivity()
+                    {
+                        ActivityType = ActivityType.ListeningTo,
+                        Name = $"{uniqueUsers} unique users"
+                    }
+                };
+                await _client.UpdateStatusAsync(activities.ElementAtOrDefault(_activityIndex), UserStatus.Online, DateTimeOffset.UtcNow);
+                _activityIndex = _activityIndex + 1 == activities.Count ? 0 : _activityIndex + 1;
+            },
+            null,
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromSeconds(60));
             return Task.CompletedTask;
         }
 
@@ -164,12 +203,82 @@ namespace Kaida.Handler
 
         private Task GuildMemberAdded(GuildMemberAddEventArgs e)
         {
+            var joinedLeftEventId = _redis.StringGet($"{e.Guild.Id}:Logs:JoinedLeftEvent");
+
+            var guild = e.Guild;
+            var member = e.Member;
+
+            if (!string.IsNullOrWhiteSpace(joinedLeftEventId))
+            {
+                var logChannel = guild.GetChannel((ulong)joinedLeftEventId);
+                var avatarUrl = member.AvatarUrl;
+                var title = ":inbox_tray: Member joined";
+                var description = new StringBuilder()
+                    .AppendLine($"Username: `{member.GetUsertag()}`")
+                    .AppendLine($"User identity: `{member.Id}`")
+                    .AppendLine($"Registered: {member.CreatedAtLongDateTimeString().Result}").ToString();
+
+                var footer = new DiscordEmbedBuilder.EmbedFooter()
+                {
+                    Text = $"Member Id: {member.Id}"
+                };
+
+                logChannel.SendEmbedMessageAsync(title: title, description: description, color: DiscordColor.SpringGreen, thumbnailUrl: avatarUrl, footer: footer, timestamp: DateTimeOffset.UtcNow);
+            }
+
             _logger.Information($"'{e.Member.GetUsertag()}' ({e.Member.Id}) has joined the guild '{e.Guild.Name}' ({e.Guild.Id}).");
             return Task.CompletedTask;
         }
 
         private Task GuildMemberRemoved(GuildMemberRemoveEventArgs e)
         {
+            var joinedLeftEventId = _redis.StringGet($"{e.Guild.Id}:Logs:JoinedLeftEvent");
+
+            var guild = e.Guild;
+            var member = e.Member;
+
+            if (!string.IsNullOrWhiteSpace(joinedLeftEventId))
+            {
+                var logChannel = guild.GetChannel((ulong)joinedLeftEventId);
+                var avatarUrl = member.AvatarUrl;
+                var title = ":outbox_tray: Member left";
+                var description = new StringBuilder()
+                    .AppendLine($"Username: `{member.GetUsertag()}`")
+                    .AppendLine($"User identity: `{member.Id}`").ToString();
+
+                var roles = string.Empty;
+                if (member.Roles.Count() > 0)
+                {
+                    var rolesSorted = member.Roles.ToList().OrderByDescending(x => x.Position);
+
+                    foreach (var role in rolesSorted)
+                    {
+                        roles += $"<@&{role.Id}> ";
+                    }
+                }
+                else
+                {
+                    roles = "None";
+                }
+
+                var fields = new List<EmbedField>()
+                {
+                    new EmbedField()
+                    {
+                        Inline = false,
+                        Name = "Roles",
+                        Value = roles
+                    }
+                };
+
+                var footer = new DiscordEmbedBuilder.EmbedFooter()
+                {
+                    Text = $"Member Id: {member.Id}"
+                };
+
+                logChannel.SendEmbedMessageAsync(title: title, description: description, color: DiscordColor.IndianRed, fields: fields, thumbnailUrl: avatarUrl, footer: footer, timestamp: DateTimeOffset.UtcNow);
+            }
+
             _logger.Information($"'{e.Member.GetUsertag()}' ({e.Member.Id}) has left the guild '{e.Guild.Name}' ({e.Guild.Id}).");
             return Task.CompletedTask;
         }
@@ -362,7 +471,7 @@ namespace Kaida.Handler
                     }
                 }
             }
-            
+
             _logger.Information($"The message ({message.Id}) from '{messageAuthor.GetUsertag()}' ({messageAuthor.Id}) was deleted in '{channel.Name}' ({channel.Id}) on '{guild.Name}' ({guild.Id}).");
             return Task.CompletedTask;
         }

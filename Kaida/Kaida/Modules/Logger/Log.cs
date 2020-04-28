@@ -128,18 +128,24 @@ namespace Kaida.Modules.Logger
                 if (key.IsNullOrEmpty)
                 {
                     _redis.StringSet($"{guild.Id}:Logs:{logLabel}", channel.Id);
-                    context.RespondAsync($"The {logLabel} log has been set to this channel.");
+                    var respond = await context.RespondAsync($"The {logLabel} log has been set to this channel.");
+                    await Task.Delay(TimeSpan.FromSeconds(5));
+                    await respond.DeleteAsync();
                 }
                 else
                 {
                     var loggedChannel = guild.GetChannel((ulong)key);
                     if (loggedChannel.Id == channel.Id)
                     {
-                        context.RespondAsync($"The {logLabel} log is already set to this channel.");
+                        var respond = await context.RespondAsync($"The {logLabel} log is already set to this channel.");
+                        await Task.Delay(TimeSpan.FromSeconds(5));
+                        await respond.DeleteAsync();
                     }
                     else
                     {
-                        context.RespondAsync($"The {logLabel} log is already set to {loggedChannel.Mention}.");
+                        var respond = await context.RespondAsync($"The {logLabel} log is already set to {loggedChannel.Mention}.");
+                        await Task.Delay(TimeSpan.FromSeconds(5));
+                        await respond.DeleteAsync();
                     }
                 }
             }

