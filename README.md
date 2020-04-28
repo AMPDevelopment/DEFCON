@@ -1,8 +1,8 @@
-# Kaida [<img src="https://github.com/OnlyOneCookie/Kaida/workflows/.NET%20Core/badge.svg?branch=master">](https://github.com/OnlyOneCookie/Kaida/actions)
-[<img src="http://hits.dwyl.com/OnlyOneCookie/Kaida.svg">](https://github.com/OnlyOneCookie/Kaida) [<img src="https://img.shields.io/github/license/OnlyOneCookie/Kaida.svg?style=flat-square">](https://github.com/OnlyOneCookie/Kaida/blob/master/license.md)  
+# Kaida [<img src="https://github.com/AMPDevelopment/Kaida/workflows/.NET%20Core/badge.svg?branch=master">](https://github.com/AMPDevelopment/Kaida/actions)
+[<img src="http://hits.dwyl.com/OnlyOneCookie/AMPDevelopment.svg">](https://github.com/OnlyOneCookie/AMPDevelopment) [<img src="https://img.shields.io/github/license/AMPDevelopment/Kaida.svg?style=flat-square">](https://github.com/AMPDevelopment/Kaida/blob/master/license.md)  
 
 ## About
-[<img src="https://img.shields.io/badge/what%20is-this%3F-blue?style=flat-square">](https://github.com/OnlyOneCookie/Kaida)  
+[<img src="https://img.shields.io/badge/what%20is-this%3F-blue?style=flat-square">](https://github.com/AMPDevelopment/Kaida)  
 Kaida is the next Discord bot, which contains everything and does it better than other bots!
 
 ## Operation System
