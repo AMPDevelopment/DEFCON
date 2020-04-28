@@ -8,7 +8,7 @@ using DSharpPlus.Entities;
 using DSharpPlus.Interactivity;
 using ImageMagick;
 using Kaida.Handler;
-using Kaida.Library.Formatter;
+using Kaida.Library.Formatters;
 using Kaida.Library.Logger;
 using Kaida.Library.Reaction;
 using Microsoft.Extensions.DependencyInjection;
@@ -188,6 +188,7 @@ namespace Kaida
                 _logger.Information($"Applying configs to shard {shard.ShardId}...");
                 _cnext = shard.UseCommandsNext(ccfg);
                 _cnext.RegisterCommands(Assembly.GetEntryAssembly());
+                _cnext.SetHelpFormatter<HelpFormatter>();
                 shard.UseInteractivity(icfg);
                 _logger.Information($"Settings up command event handler for the shard {shard.ShardId}...");
                 _commandEventHandler = new CommandEventHandler(_cnext, _logger);

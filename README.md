@@ -1,4 +1,4 @@
-# Kaida [<img src="https://github.com/AMPDevelopment/Kaida/workflows/.NET%20Core/badge.svg?branch=master">](https://github.com/AMPDevelopment/Kaida/actions)
+# Kaida
 [<img src="http://hits.dwyl.com/OnlyOneCookie/AMPDevelopment.svg">](https://github.com/OnlyOneCookie/AMPDevelopment) [<img src="https://img.shields.io/github/license/AMPDevelopment/Kaida.svg?style=flat-square">](https://github.com/AMPDevelopment/Kaida/blob/master/license.md)  
 
 ## About
@@ -9,7 +9,7 @@ Kaida is the next Discord bot, which contains everything and does it better than
 - Linux Ubuntu 18.04
 
 ## Technologies
-- .NET Core 3.1
+- [.NET Core 3.1](https://dotnet.microsoft.com/download/dotnet-core/)
 - [DSharpPlus](https://dsharpplus.github.io/)
 - [Redis](https://redis.io)
 

@@ -1,7 +1,6 @@
 ﻿using System.Threading.Tasks;
 using DSharpPlus.CommandsNext;
 using Kaida.Library.Extensions;
-using Kaida.Library.Formatter;
 using Serilog;
 
 namespace Kaida.Handler
