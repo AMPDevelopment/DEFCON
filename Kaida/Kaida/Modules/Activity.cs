@@ -11,12 +11,10 @@ namespace Kaida.Modules
     public class Activity : BaseCommandModule
     {
         private readonly ILogger _logger;
-        private readonly IDatabase _redis;
 
-        public Activity(ILogger logger, IDatabase redis)
+        public Activity(ILogger logger)
         {
             _logger = logger;
-            _redis = redis;
         }
 
         [Command("Activity")]
@@ -26,26 +24,33 @@ namespace Kaida.Modules
 
             var items = content.Split("|");
             activity.Name = items[1].Trim();
+
             switch (items[0].ToLowerInvariant().Trim())
             {
                 case "custom":
                     activity.ActivityType = ActivityType.Custom;
+
                     break;
                 case "playing":
                     activity.ActivityType = ActivityType.Playing;
+
                     break;
                 case "watching":
                     activity.ActivityType = ActivityType.Watching;
+
                     break;
                 case "streaming":
                     activity.StreamUrl = items[2].Trim();
                     activity.ActivityType = ActivityType.Streaming;
+
                     break;
                 case "listening":
                     activity.ActivityType = ActivityType.ListeningTo;
+
                     break;
                 default:
                     activity.ActivityType = ActivityType.Custom;
+
                     break;
             }
 

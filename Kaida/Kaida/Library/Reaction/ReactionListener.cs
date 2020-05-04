@@ -10,10 +10,10 @@ namespace Kaida.Library.Reaction
 {
     public class ReactionListener : IReactionListener
     {
+        private readonly List<int> _loadedListeners = new List<int>();
         private readonly ILogger _logger;
         private readonly IDatabase _redis;
         private Dictionary<string, Dictionary<DiscordEmoji, ulong>> _listener;
-        private readonly List<int> _loadedListeners = new List<int>();
 
         public ReactionListener(ILogger logger, IDatabase redis)
         {
@@ -24,6 +24,7 @@ namespace Kaida.Library.Reaction
         public bool IsListener(ulong id, DiscordEmoji emoji, BaseDiscordClient client)
         {
             CheckShardListener(client);
+
             return _listener.ContainsKey(id.ToString()) && _listener[id.ToString()].ContainsKey(emoji);
         }
 
@@ -34,11 +35,12 @@ namespace Kaida.Library.Reaction
                 _redis.SetAdd("MessageIds", messageId);
             }
 
-            _redis.HashSet($"Messages:{messageId}", new[] { new HashEntry(emoji.ToString(), role.Id.ToString()) });
+            _redis.HashSet($"Messages:{messageId}", new[] {new HashEntry(emoji.ToString(), role.Id.ToString())});
 
             if (_listener.ContainsKey(messageId.ToString()))
             {
                 _listener[messageId.ToString()].Add(emoji, role.Id);
+
                 return Task.CompletedTask;
             }
 
@@ -57,11 +59,14 @@ namespace Kaida.Library.Reaction
 
         public Task RemoveRoleFromListener(ulong messageId, DiscordEmoji emoji, BaseDiscordClient client)
         {
-            if (_listener.ContainsKey(messageId.ToString()) && _listener[messageId.ToString()].ContainsKey(emoji)){
+            if (_listener.ContainsKey(messageId.ToString()) && _listener[messageId.ToString()].ContainsKey(emoji))
+            {
                 _redis.HashDelete($"Messages:{messageId}", emoji.ToString());
                 _listener[messageId.ToString()].Remove(emoji);
+
                 return Task.CompletedTask;
             }
+
             return Task.CompletedTask;
         }
 
@@ -71,14 +76,15 @@ namespace Kaida.Library.Reaction
             var role = channel.Guild.GetRole(roleId);
             var member = await channel.Guild.GetMemberAsync(user.Id);
 
-            if (member.Roles.Contains(role)) {
+            if (member.Roles.Contains(role))
+            {
                 _logger.Information($"The role '{role.Name}' was revoked from '{user.Username}#{user.Discriminator}' on the guild '{channel.Guild.Name}' ({channel.Guild.Id}).");
-                await ((DiscordMember)user).RevokeRoleAsync(role);
+                await ((DiscordMember) user).RevokeRoleAsync(role);
             }
             else
             {
                 _logger.Information($"The role '{role.Name}' was granted to '{user.Username}#{user.Discriminator}' on the guild '{channel.Guild.Name}' ({channel.Guild.Id}).");
-                await ((DiscordMember)user).GrantRoleAsync(role);
+                await ((DiscordMember) user).GrantRoleAsync(role);
             }
 
             await message.DeleteReactionAsync(emoji, user);
@@ -98,6 +104,7 @@ namespace Kaida.Library.Reaction
                 {
                     DiscordEmoji emoji;
                     var fieldName = reaction.Name.ToString();
+
                     if (fieldName.StartsWith("<"))
                     {
                         fieldName = fieldName.Substring(fieldName.LastIndexOf(':'));
@@ -111,6 +118,7 @@ namespace Kaida.Library.Reaction
 
                     emojiDictionary.Add(emoji, ulong.Parse(reaction.Value));
                 }
+
                 _listener.Add(id, emojiDictionary);
             }
 
@@ -120,9 +128,11 @@ namespace Kaida.Library.Reaction
         private Task CheckShardListener(BaseDiscordClient client)
         {
             var shard = (DiscordClient) client;
+
             if (_loadedListeners.Contains(shard.ShardId)) return Task.CompletedTask;
             _loadedListeners.Add(shard.ShardId);
             LoadListeners(client);
+
             return Task.CompletedTask;
         }
     }

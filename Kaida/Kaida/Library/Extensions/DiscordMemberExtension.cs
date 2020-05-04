@@ -1,8 +1,5 @@
-﻿using DSharpPlus.Entities;
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
+using DSharpPlus.Entities;
 
 namespace Kaida.Library.Extensions
 {
@@ -17,14 +14,7 @@ namespace Kaida.Library.Extensions
         {
             var boostingDateTime = member.PremiumSince.GetValueOrDefault().UtcDateTime;
 
-            if (boostingDateTime>=member.Guild.CreationTimestamp.UtcDateTime)
-            {
-                return $"{boostingDateTime.ToLongDateString()}, {boostingDateTime.ToShortTimeString()}";
-            }
-            else
-            {
-                return "Not boosting";
-            }
+            return boostingDateTime >= member.Guild.CreationTimestamp.UtcDateTime ? $"{boostingDateTime.ToLongDateString()}, {boostingDateTime.ToShortTimeString()}" : "Not boosting";
         }
     }
 }

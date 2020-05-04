@@ -1,12 +1,10 @@
-﻿using DSharpPlus.CommandsNext;
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
+using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
 using Kaida.Entities.Discord;
 using Kaida.Library.Extensions;
 using Serilog;
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Kaida.Modules.Miscellaneous
 {
@@ -20,18 +18,14 @@ namespace Kaida.Modules.Miscellaneous
         }
 
         [Command("Ping")]
-        public async Task PingPong(CommandContext context)
+        public async Task Pong(CommandContext context)
         {
-            var fields = new List<EmbedField>();
-
-            fields.Add(new EmbedField
+            var fields = new List<EmbedField>
             {
-                Inline = true,
-                Name = "Ping",
-                Value = $":ping_pong: {context.Client.Ping}ms"
-            });
+                new EmbedField {Inline = true, Name = "Ping", Value = $":ping_pong: {context.Client.Ping}ms"}
+            };
 
-            await context.EmbeddedMessage(title: "Client Status", fields: fields);
+            await context.EmbeddedMessage("Client Status", fields: fields);
         }
     }
 }

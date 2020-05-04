@@ -6,6 +6,7 @@ using DSharpPlus;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.Entities;
 using DSharpPlus.Interactivity;
+using DSharpPlus.Interactivity.Enums;
 using ImageMagick;
 using Kaida.Handler;
 using Kaida.Library.Formatters;
@@ -14,6 +15,7 @@ using Kaida.Library.Reaction;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using StackExchange.Redis;
+using System.Diagnostics;
 
 namespace Kaida
 {
@@ -39,16 +41,13 @@ namespace Kaida
 
             try
             {
-                new Program().Start(args, logger)
-                    .ConfigureAwait(false)
-                    .GetAwaiter()
-                    .GetResult();
+                new Program().Start(args, logger).ConfigureAwait(false).GetAwaiter().GetResult();
             }
             catch (Exception e)
             {
                 logger.Fatal(e, "Rest in peace!");
-                System.Diagnostics.Process.Start(System.AppDomain.CurrentDomain.FriendlyName);
-                System.Environment.Exit(1);
+                Process.Start(AppDomain.CurrentDomain.FriendlyName);
+                Environment.Exit(1);
             }
         }
 
@@ -97,7 +96,7 @@ namespace Kaida
             try
             {
                 _logger.Information("Connecting to Redis database '127.0.0.1:6379'...");
-                var redisMultiplexer = ConnectionMultiplexer.Connect("127.0.0.1:6379");
+                var redisMultiplexer = await ConnectionMultiplexer.ConnectAsync("127.0.0.1:6379");
                 _redis = redisMultiplexer.GetDatabase(_database);
                 _logger.Information($"Successfully connected to database '{_redis.Database}'.");
             }
@@ -126,10 +125,7 @@ namespace Kaida
             _logger.Information("Initializing the services setup...");
             _reactionListener = new ReactionListener(_logger, _redis);
 
-            _services = new ServiceCollection()
-                .AddSingleton(_redis)
-                .AddSingleton(_logger)
-                .AddSingleton(_reactionListener);
+            _services = new ServiceCollection().AddSingleton(_redis).AddSingleton(_logger).AddSingleton(_reactionListener);
 
             _serviceProvider = _services.BuildServiceProvider();
             _logger.Information("Successfully setup the services.");
@@ -149,7 +145,7 @@ namespace Kaida
                 TokenType = TokenType.Bot,
                 DateTimeFormat = "dd-MM-yyyy HH:mm",
                 AutoReconnect = true,
-                MessageCacheSize = 4086,
+                MessageCacheSize = 4096,
                 ReconnectIndefinitely = true,
                 HttpTimeout = Timeout.InfiniteTimeSpan,
                 GatewayCompressionLevel = GatewayCompressionLevel.Payload
@@ -172,7 +168,7 @@ namespace Kaida
 
             var icfg = new InteractivityConfiguration
             {
-                PollBehaviour = DSharpPlus.Interactivity.Enums.PollBehaviour.KeepEmojis,
+                PollBehaviour = PollBehaviour.KeepEmojis,
                 Timeout = TimeSpan.FromMinutes(2)
             };
 
@@ -196,24 +192,24 @@ namespace Kaida
                 await shard.InitializeAsync();
             }
 
-            foreach (var cnextRegisteredCommand in _cnext.RegisteredCommands)
+            foreach (var cNextRegisteredCommand in _cnext.RegisteredCommands)
             {
-                _logger.Information($"{cnextRegisteredCommand.Value} is registered!");
+                _logger.Information($"{cNextRegisteredCommand.Value} is registered!");
             }
         }
 
         public Task<int> PrefixResolverAsync(DiscordMessage msg)
         {
-            if (!msg.Channel.IsPrivate)
-            {
-                var prefix = _redis.StringGet($"{msg.Channel.Guild.Id}:CommandPrefix");
-                if (!string.IsNullOrWhiteSpace(prefix))
-                {
-                    return Task.FromResult(msg.GetStringPrefixLength(prefix));
-                }
+            if (msg.Channel.IsPrivate) return Task.FromResult(msg.GetStringPrefixLength("$"));
 
-                _redis.StringSet($"{msg.Channel.Guild.Id}:CommandPrefix", "$");
+            var prefix = _redis.StringGet($"{msg.Channel.Guild.Id}:CommandPrefix");
+
+            if (!string.IsNullOrWhiteSpace(prefix))
+            {
+                return Task.FromResult(msg.GetStringPrefixLength(prefix));
             }
+
+            _redis.StringSet($"{msg.Channel.Guild.Id}:CommandPrefix", "$");
 
             return Task.FromResult(msg.GetStringPrefixLength("$"));
         }

@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.Entities;
@@ -12,9 +9,9 @@ namespace Kaida.Library.Extensions
     public static class DiscordGuildExtension
     {
         /// <summary>
-        /// Gets a list of <see cref="DiscordChannel"/> of the type <see cref="ChannelType.Text"/>.
+        ///     Gets a list of <see cref="DiscordChannel" /> of the type <see cref="ChannelType.Text" />.
         /// </summary>
-        /// <param name="guild">Represents the <see cref="DiscordGuild"/>.</param>
+        /// <param name="guild">Represents the <see cref="DiscordGuild" />.</param>
         /// <returns></returns>
         public static async Task<List<DiscordChannel>> GetTextChannels(this DiscordGuild guild)
         {
@@ -22,9 +19,9 @@ namespace Kaida.Library.Extensions
         }
 
         /// <summary>
-        /// Gets a list of <see cref="DiscordChannel"/> of the type <see cref="ChannelType.Voice"/>.
+        ///     Gets a list of <see cref="DiscordChannel" /> of the type <see cref="ChannelType.Voice" />.
         /// </summary>
-        /// <param name="guild">Represents the <see cref="DiscordGuild"/>.</param>
+        /// <param name="guild">Represents the <see cref="DiscordGuild" />.</param>
         /// <returns></returns>
         public static async Task<List<DiscordChannel>> GetVoiceChannels(this DiscordGuild guild)
         {
@@ -32,9 +29,9 @@ namespace Kaida.Library.Extensions
         }
 
         /// <summary>
-        /// Gets a list of <see cref="DiscordChannel"/> of the type <see cref="ChannelType.Category"/>.
+        ///     Gets a list of <see cref="DiscordChannel" /> of the type <see cref="ChannelType.Category" />.
         /// </summary>
-        /// <param name="guild">Represents the <see cref="DiscordGuild"/>.</param>
+        /// <param name="guild">Represents the <see cref="DiscordGuild" />.</param>
         /// <returns></returns>
         public static async Task<List<DiscordChannel>> GetCategoryChannels(this DiscordGuild guild)
         {
@@ -42,9 +39,9 @@ namespace Kaida.Library.Extensions
         }
 
         /// <summary>
-        /// Gets a list of <see cref="DiscordChannel"/> of the type <see cref="ChannelType.News"/>.
+        ///     Gets a list of <see cref="DiscordChannel" /> of the type <see cref="ChannelType.News" />.
         /// </summary>
-        /// <param name="guild">Represents the <see cref="DiscordGuild"/>.</param>
+        /// <param name="guild">Represents the <see cref="DiscordGuild" />.</param>
         /// <returns></returns>
         public static async Task<List<DiscordChannel>> GetNewsChannels(this DiscordGuild guild)
         {
@@ -52,40 +49,79 @@ namespace Kaida.Library.Extensions
         }
 
         /// <summary>
-        /// Gets a list of <see cref="DiscordRole"/> from the <see cref="DiscordGuild"/>.
+        ///     Gets a list of <see cref="DiscordRole" /> from the <see cref="DiscordGuild" />.
         /// </summary>
-        /// <param name="guild">Represents the <see cref="DiscordGuild"/>.</param>
-        /// <returns>Returns a list of <see cref="DiscordRole"/>.</returns>
+        /// <param name="guild">Represents the <see cref="DiscordGuild" />.</param>
+        /// <returns>Returns a list of <see cref="DiscordRole" />.</returns>
         public static async Task<List<DiscordRole>> GetRoles(this DiscordGuild guild)
         {
             return guild.Roles.Values.Where(x => x.Name != "@everyone").ToList();
         }
 
         /// <summary>
-        /// Gets a list of <see cref="DiscordRole"/> which are below the <see cref="DiscordClient"/> from the <see cref="DiscordGuild"/>.
+        ///     Gets a list of <see cref="DiscordRole" /> which are below the <see cref="DiscordClient" /> from the
+        ///     <see cref="DiscordGuild" />.
         /// </summary>
-        /// <param name="guild">Represents the <see cref="DiscordGuild"/>.</param>
-        /// <returns>Returns a list of <see cref="DiscordRole"/>.</returns>
+        /// <param name="guild">Represents the <see cref="DiscordGuild" />.</param>
+        /// <returns>Returns a list of <see cref="DiscordRole" />.</returns>
         public static async Task<List<DiscordRole>> GetRolesBelowBot(this DiscordGuild guild)
         {
             var botRoles = guild.GetMemberAsync(guild.CurrentMember.Id).Result.Roles.OrderByDescending(x => x.Position);
-            var botRole = botRoles.FirstOrDefault(x => x.Name != "@everyone" && x.IsManaged == true);
-            return guild.Roles.Values.Where(x => x.Position < botRole.Position).ToList();
+            var botRole = botRoles.FirstOrDefault(x => x.Name != "@everyone" && x.IsManaged);
+
+            return guild.Roles.Values.Where(x => botRole != null && x.Position < botRole.Position).ToList();
         }
 
         /// <summary>
-        /// Ban every <see cref="DiscordMember"/> on the <see cref="DiscordGuild"/> which are not the owner or a bot.
+        ///     Ban every <see cref="DiscordMember" /> on the <see cref="DiscordGuild" /> which are not the owner or a bot.
         /// </summary>
-        /// <param name="guild">Represents the <see cref="DiscordGuild"/>.</param>
+        /// <param name="guild">Represents the <see cref="DiscordGuild" />.</param>
         /// <returns></returns>
         public static async Task DoBanAllMembers(this DiscordGuild guild)
         {
             var bot = await guild.GetMemberAsync(guild.CurrentMember.Id);
             var users = guild.Members.Values.Where(x => x.Hierarchy < bot.Hierarchy).ToList();
+
             foreach (var user in users)
             {
                 await user.BanAsync();
             }
+        }
+
+        public static async Task<string> CreatedAtLongDateTimeString(this DiscordGuild guild)
+        {
+            return $"{guild.CreationTimestamp.UtcDateTime.ToLongDateString()}, {guild.CreationTimestamp.UtcDateTime.ToShortTimeString()}";
+        }
+
+        public static async Task<string> GetPremiumTier(this DiscordGuild guild)
+        {
+            var premiumTier = string.Empty;
+
+            switch (guild.PremiumTier)
+            {
+                case PremiumTier.None:
+                    premiumTier = "Level 0";
+
+                    break;
+                case PremiumTier.Tier_1:
+                    premiumTier = "Level 1";
+
+                    break;
+                case PremiumTier.Tier_2:
+                    premiumTier = "Level 2";
+
+                    break;
+                case PremiumTier.Tier_3:
+                    premiumTier = "Level 3";
+
+                    break;
+                case PremiumTier.Unknown:
+                    premiumTier = "Unknown Level";
+
+                    break;
+            }
+
+            return premiumTier;
         }
     }
 }

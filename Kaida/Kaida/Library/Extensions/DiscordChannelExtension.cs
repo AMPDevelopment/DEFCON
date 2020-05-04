@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Linq;
 using System.Threading.Tasks;
 using DSharpPlus.Entities;
 using Kaida.Entities.Discord;
@@ -10,12 +9,14 @@ namespace Kaida.Library.Extensions
 {
     public static class DiscordChannelExtension
     {
+        private static readonly DiscordColor Color = new DiscordColor(245, 139, 54);
+
         /// <summary>
-        /// Deletes a list of <see cref="DiscordMessage"/> in the <see cref="DiscordChannel"/>.
+        ///     Deletes a list of <see cref="DiscordMessage" /> in the <see cref="DiscordChannel" />.
         /// </summary>
-        /// <param name="channel">Represents the <see cref="DiscordChannel"/>.</param>
-        /// <param name="messages">Represents a list of <see cref="DiscordMessage"/> which will deleted.</param>
-        /// <param name="reason">Represents the reason why those <see cref="DiscordMessage"/>s has been deleted.</param>
+        /// <param name="channel">Represents the <see cref="DiscordChannel" />.</param>
+        /// <param name="messages">Represents a list of <see cref="DiscordMessage" /> which will deleted.</param>
+        /// <param name="reason">Represents the reason why those <see cref="DiscordMessage" />s has been deleted.</param>
         /// <returns></returns>
         public static async Task BulkMessagesAsync(this DiscordChannel channel, IEnumerable<DiscordMessage> messages, string reason = null)
         {
@@ -23,12 +24,16 @@ namespace Kaida.Library.Extensions
         }
 
         /// <summary>
-        /// Deletes a list of <see cref="DiscordMessage"/> from the <see cref="DiscordMember"/> in the <see cref="DiscordChannel"/>.
+        ///     Deletes a list of <see cref="DiscordMessage" /> from the <see cref="DiscordMember" /> in the
+        ///     <see cref="DiscordChannel" />.
         /// </summary>
-        /// <param name="channel">Represents the <see cref="DiscordChannel"/>.</param>
-        /// <param name="messages">Represents a list of <see cref="DiscordMessage"/> which will deleted.</param>
-        /// <param name="member">Represents the suspect <see cref="DiscordMember"/> which will all his <see cref="DiscordMessage"/>s</param>
-        /// <param name="reason">Represents the reason why those <see cref="DiscordMessage"/>s has been deleted.</param>
+        /// <param name="channel">Represents the <see cref="DiscordChannel" />.</param>
+        /// <param name="messages">Represents a list of <see cref="DiscordMessage" /> which will deleted.</param>
+        /// <param name="member">
+        ///     Represents the suspect <see cref="DiscordMember" /> which will all his
+        ///     <see cref="DiscordMessage" />s
+        /// </param>
+        /// <param name="reason">Represents the reason why those <see cref="DiscordMessage" />s has been deleted.</param>
         /// <returns></returns>
         public static async Task BulkMessagesFromUserAsync(this DiscordChannel channel, IEnumerable<DiscordMessage> messages, DiscordMember member, string reason = null)
         {
@@ -37,10 +42,10 @@ namespace Kaida.Library.Extensions
         }
 
         /// <summary>
-        /// Deletes a single <see cref="DiscordMessage"/> by id.
+        ///     Deletes a single <see cref="DiscordMessage" /> by id.
         /// </summary>
-        /// <param name="channel">Represents the <see cref="DiscordChannel"/>.</param>
-        /// <param name="messageId">Represents the id of the <see cref="DiscordMessage"/>.</param>
+        /// <param name="channel">Represents the <see cref="DiscordChannel" />.</param>
+        /// <param name="messageId">Represents the id of the <see cref="DiscordMessage" />.</param>
         /// <returns></returns>
         public static async Task DeleteMessageByIdAsync(this DiscordChannel channel, ulong messageId)
         {
@@ -48,19 +53,17 @@ namespace Kaida.Library.Extensions
         }
 
         /// <summary>
-        /// Gets the last very last <see cref="DiscordMessage"/>.
+        ///     Gets the last very last <see cref="DiscordMessage" />.
         /// </summary>
-        /// <param name="channel">Represents the <see cref="DiscordChannel"/>.</param>
+        /// <param name="channel">Represents the <see cref="DiscordChannel" />.</param>
         /// <returns></returns>
         public static async Task<DiscordMessage> GetLastMessageAsync(this DiscordChannel channel)
         {
             return channel.GetMessagesAsync(1).Result.First();
         }
 
-        private static readonly DiscordColor Color = new DiscordColor(245, 139, 54);
-
         /// <summary>
-        ///     Advanced embeded message.
+        ///     Advanced embedded message.
         /// </summary>
         /// <param name="context">Discord's socket command context.</param>
         /// <param name="title">The title.</param>
@@ -73,18 +76,8 @@ namespace Kaida.Library.Extensions
         /// <param name="image">The image.</param>
         /// <param name="footer">The footer.</param>
         /// <param name="timestamp">The timestamp.</param>
-        /// <returns>Returns a embeded message in the channel in which the call was triggered.</returns>
-        public static async Task SendEmbedMessageAsync(this DiscordChannel channel,
-            string title = null,
-            string description = null,
-            DiscordColor? color = null,
-            DiscordEmbedBuilder.EmbedAuthor author = null,
-            List<EmbedField> fields = null,
-            string url = null,
-            string thumbnailUrl = null,
-            string image = null,
-            DiscordEmbedBuilder.EmbedFooter footer = null,
-            DateTimeOffset? timestamp = null)
+        /// <returns>Returns a embedded message in the channel in which the call was triggered.</returns>
+        public static async Task SendEmbedMessageAsync(this DiscordChannel channel, string title = null, string description = null, DiscordColor? color = null, DiscordEmbedBuilder.EmbedAuthor author = null, List<EmbedField> fields = null, string url = null, string thumbnailUrl = null, string image = null, DiscordEmbedBuilder.EmbedFooter footer = null, DateTimeOffset? timestamp = null)
         {
             var embeddedMessage = new DiscordEmbedBuilder
             {

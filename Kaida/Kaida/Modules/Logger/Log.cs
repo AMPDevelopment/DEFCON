@@ -1,12 +1,10 @@
-﻿using DSharpPlus.CommandsNext;
+﻿using System;
+using System.Threading.Tasks;
+using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
 using Serilog;
 using StackExchange.Redis;
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Kaida.Modules.Logger
 {
@@ -87,72 +85,95 @@ namespace Kaida.Modules.Logger
         {
             var guild = context.Guild;
             var channel = context.Channel;
-            var logLabel = string.Empty;
-            switch (logType)
-            {
-                case LogType.JoinedLeft:
-                    logLabel = "JoinedLeftEvent";
-                    break;
-                case LogType.Invite:
-                    logLabel = "InviteEvent";
-                    break;
-                case LogType.Message:
-                    logLabel = "MessageEvent";
-                    break;
-                case LogType.Voice:
-                    logLabel = "VoiceEvent";
-                    break;
-                case LogType.Nickname:
-                    logLabel = "NicknameEvent";
-                    break;
-                case LogType.Warn:
-                    logLabel = "WarnEvent";
-                    break;
-                case LogType.Mute:
-                    logLabel = "MuteEvent";
-                    break;
-                case LogType.Kick:
-                    logLabel = "KickEvent";
-                    break;
-                case LogType.Ban:
-                    logLabel = "BanEvent";
-                    break;
-                case LogType.Guild:
-                    logLabel = "GuildEvent";
-                    break;
-            }
+            var logLabel = await SetLogTypeGetLogLabel(logType);
+            DiscordMessage respond = null;
 
             if (string.IsNullOrWhiteSpace(status) || status == "enable")
             {
                 var key = _redis.StringGet($"{guild.Id}:Logs:{logLabel}");
+
                 if (key.IsNullOrEmpty)
                 {
                     _redis.StringSet($"{guild.Id}:Logs:{logLabel}", channel.Id);
-                    var respond = await context.RespondAsync($"The {logLabel} log has been set to this channel.");
-                    await Task.Delay(TimeSpan.FromSeconds(5));
-                    await respond.DeleteAsync();
+                    respond = await context.RespondAsync($"The {logLabel} log has been set to this channel.");
                 }
                 else
                 {
-                    var loggedChannel = guild.GetChannel((ulong)key);
+                    var loggedChannel = guild.GetChannel((ulong) key);
+
                     if (loggedChannel.Id == channel.Id)
                     {
-                        var respond = await context.RespondAsync($"The {logLabel} log is already set to this channel.");
-                        await Task.Delay(TimeSpan.FromSeconds(5));
-                        await respond.DeleteAsync();
+                        respond = await context.RespondAsync($"The {logLabel} log is already set to this channel.");
                     }
                     else
                     {
-                        var respond = await context.RespondAsync($"The {logLabel} log is already set to {loggedChannel.Mention}.");
-                        await Task.Delay(TimeSpan.FromSeconds(5));
-                        await respond.DeleteAsync();
+                        respond = await context.RespondAsync($"The {logLabel} log is already set to {loggedChannel.Mention}.");
                     }
                 }
             }
+
             if (status == "disable")
             {
                 _redis.KeyDelete($"{guild.Id}:Logs:{logLabel}");
+                respond = await context.RespondAsync($"The {logLabel} log has been disabled.");
             }
+
+            if (respond != null)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(5));
+                respond.DeleteAsync();
+            }
+        }
+
+        private async Task<string> SetLogTypeGetLogLabel(LogType logType)
+        {
+            var logLabel = string.Empty;
+
+            switch (logType)
+            {
+                case LogType.JoinedLeft:
+                    logLabel = "JoinedLeftEvent";
+
+                    break;
+                case LogType.Invite:
+                    logLabel = "InviteEvent";
+
+                    break;
+                case LogType.Message:
+                    logLabel = "MessageEvent";
+
+                    break;
+                case LogType.Voice:
+                    logLabel = "VoiceEvent";
+
+                    break;
+                case LogType.Nickname:
+                    logLabel = "NicknameEvent";
+
+                    break;
+                case LogType.Warn:
+                    logLabel = "WarnEvent";
+
+                    break;
+                case LogType.Mute:
+                    logLabel = "MuteEvent";
+
+                    break;
+                case LogType.Kick:
+                    logLabel = "KickEvent";
+
+                    break;
+                case LogType.Ban:
+                    logLabel = "BanEvent";
+
+                    break;
+                case LogType.Guild:
+                    logLabel = "GuildEvent";
+
+                    break;
+            }
+
+            return logLabel;
         }
     }
 }

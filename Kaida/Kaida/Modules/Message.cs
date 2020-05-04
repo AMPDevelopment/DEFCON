@@ -10,12 +10,12 @@ using StackExchange.Redis;
 namespace Kaida.Modules
 {
     [RequirePermissions(Permissions.ManageMessages)]
-    public class Texting : BaseCommandModule
+    public class Message : BaseCommandModule
     {
         private readonly ILogger _logger;
         private readonly IDatabase _redis;
 
-        public Texting(ILogger logger, IDatabase redis)
+        public Message(ILogger logger, IDatabase redis)
         {
             _logger = logger;
             _redis = redis;

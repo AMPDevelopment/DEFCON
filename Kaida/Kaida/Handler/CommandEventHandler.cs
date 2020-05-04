@@ -7,8 +7,8 @@ namespace Kaida.Handler
 {
     public class CommandEventHandler
     {
-        private readonly ILogger _logger;
         private readonly CommandsNextExtension _cnext;
+        private readonly ILogger _logger;
 
         public CommandEventHandler(CommandsNextExtension cnext, ILogger logger)
         {
@@ -53,7 +53,7 @@ namespace Kaida.Handler
             var guild = context.Guild;
             var channel = context.Channel;
             var user = context.User;
-            
+
             if (!channel.IsPrivate)
             {
                 if (channel != null && user != null)

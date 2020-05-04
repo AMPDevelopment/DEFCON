@@ -3,7 +3,6 @@ using DSharpPlus;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
-using DSharpPlus.Interactivity;
 using Kaida.Library.Reaction;
 using Serilog;
 
@@ -23,7 +22,7 @@ namespace Kaida.Modules
         }
 
         [Command("Listen")]
-        [Aliases("l")]
+        [Aliases("L")]
         public async Task Listen(CommandContext context, ulong messageId, DiscordEmoji emoji, DiscordRole role)
         {
             var message = await context.Channel.GetMessageAsync(messageId);
@@ -32,30 +31,26 @@ namespace Kaida.Modules
         }
 
         [Command("Unlisten")]
-        [Aliases("ul")]
+        [Aliases("UL")]
         public async Task Unlisten(CommandContext context, ulong messageId, DiscordEmoji emoji)
         {
             await _reactionListener.RemoveRoleFromListener(messageId, emoji, context.Client);
             await Cleanup(context, messageId, emoji);
         }
 
-
         [Command("AddCategory")]
-        [Aliases("addcat")]
+        [Aliases("AddCat")]
         public async Task AddCategory(CommandContext context, [RemainingText] string name)
         {
-            
         }
 
         [Command("DeleteCategory")]
-        [Aliases("delcat")]
+        [Aliases("DelCat")]
         public async Task DeleteCategory(CommandContext context, int id)
         {
-
         }
 
         [Command("Reset")]
-        [Aliases("ereset")]
         public async Task CleanEmojis(CommandContext context, ulong messageId, DiscordEmoji emoji)
         {
             await Cleanup(context, messageId, emoji);
@@ -65,6 +60,7 @@ namespace Kaida.Modules
         {
             var message = await context.Channel.GetMessageAsync(messageId);
             var usersReacted = await message.GetReactionsAsync(emoji);
+
             foreach (var user in usersReacted)
             {
                 if (!user.IsBot) await message.DeleteReactionAsync(emoji, user);

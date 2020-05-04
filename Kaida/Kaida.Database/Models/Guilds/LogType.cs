@@ -1,4 +1,4 @@
-﻿namespace Kaida.Modules.Logger
+﻿namespace Kaida.Database.Models.Guilds
 {
     public enum LogType
     {

@@ -2,9 +2,10 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace Kaida.Library.Extensions
+namespace Kaida.Modules.Miscellaneous
 {
-    internal class DiscordMessageExtension
+    internal class About
     {
+        // soonTM
     }
 }

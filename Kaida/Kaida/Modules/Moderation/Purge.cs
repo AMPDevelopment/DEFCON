@@ -1,11 +1,10 @@
-﻿using System.Threading.Tasks;
+﻿using System.Linq;
+using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
-using DSharpPlus.Interactivity;
 using Kaida.Library.Extensions;
-using System.Linq;
 using Serilog;
 
 namespace Kaida.Modules.Moderation
@@ -28,8 +27,9 @@ namespace Kaida.Modules.Moderation
         {
             if (amount <= 5000)
             {
-                var msgs = await context.Channel.GetMessagesBeforeAsync(context.Message.Id, amount);
-                context.Channel.BulkMessagesAsync(msgs, reason);
+                var messages = await context.Channel.GetMessagesBeforeAsync(context.Message.Id, amount);
+                context.Channel.BulkMessagesAsync(messages, reason);
+
                 if (amount == 1)
                 {
                     await context.RespondDeleteMessageDelayedAsync($"{context.User.Username} deleted 1 message.");
@@ -51,10 +51,11 @@ namespace Kaida.Modules.Moderation
         {
             if (amount <= 5000)
             {
-                var msgs = context.Channel.GetMessagesBeforeAsync(context.Message.Id, amount).Result.Where(x => x.Author == user);
-                context.Channel.BulkMessagesAsync(msgs, reason);
+                var messages = context.Channel.GetMessagesBeforeAsync(context.Message.Id, amount).Result.Where(x => x.Author == user).ToList();
+                context.Channel.BulkMessagesAsync(messages, reason);
 
-                var actuallyAmount = msgs.Count();
+                var actuallyAmount = messages.Count();
+
                 if (actuallyAmount == 1)
                 {
                     await context.RespondDeleteMessageDelayedAsync($"{context.User.Username} deleted 1 message from {user.Mention} in the last {amount} messages.");
@@ -75,6 +76,7 @@ namespace Kaida.Modules.Moderation
         {
             var message = await context.Channel.GetMessageAsync(messageId);
             var users = await message.GetReactionsAsync(emoji);
+
             foreach (var user in users)
             {
                 await message.DeleteReactionAsync(emoji, user, reason);

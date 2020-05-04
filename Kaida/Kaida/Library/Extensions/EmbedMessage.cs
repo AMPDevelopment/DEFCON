@@ -9,10 +9,10 @@ namespace Kaida.Library.Extensions
 {
     public static class EmbedMessage
     {
-        private static readonly DiscordColor Color = new DiscordColor(245, 139, 54);
+        private static readonly DiscordColor Color = DiscordColor.Turquoise;
 
         /// <summary>
-        ///     Advanced embeded message.
+        ///     Advanced embedded message.
         /// </summary>
         /// <param name="context">Discord's socket command context.</param>
         /// <param name="title">The title.</param>
@@ -25,18 +25,8 @@ namespace Kaida.Library.Extensions
         /// <param name="image">The image.</param>
         /// <param name="footer">The footer.</param>
         /// <param name="timestamp">The timestamp.</param>
-        /// <returns>Returns a embeded message in the channel in which the call was triggered.</returns>
-        public static async Task EmbeddedMessage(this CommandContext context, 
-            string title = null,
-            string description = null,
-            DiscordColor? color = null,
-            DiscordEmbedBuilder.EmbedAuthor author = null, 
-            List<EmbedField> fields = null,
-            string url = null,
-            string thumbnailUrl = null, 
-            string image = null,
-            DiscordEmbedBuilder.EmbedFooter footer = null,
-            DateTimeOffset? timestamp = null)
+        /// <returns>Returns a embedded message in the channel in which the call was triggered.</returns>
+        public static async Task EmbeddedMessage(this CommandContext context, string title = null, string description = null, DiscordColor? color = null, DiscordEmbedBuilder.EmbedAuthor author = null, List<EmbedField> fields = null, string url = null, string thumbnailUrl = null, string image = null, DiscordEmbedBuilder.EmbedFooter footer = null, DateTimeOffset? timestamp = null)
         {
             var embeddedMessage = new DiscordEmbedBuilder
             {
@@ -104,9 +94,9 @@ namespace Kaida.Library.Extensions
             var url = filteredParameters[4] as string;
             var fields = new List<EmbedField>();
 
-            if (filteredParameters[5] is List<EmbedField> filteredfields)
+            if (filteredParameters[5] is List<EmbedField> filteredFields)
             {
-                fields = filteredfields;
+                fields = filteredFields;
             }
 
             await context.EmbeddedMessage(title, description, fields: fields, thumbnailUrl: thumbnail, image: image, url: url);
@@ -146,6 +136,7 @@ namespace Kaida.Library.Extensions
             var fieldName = string.Empty;
             var fieldValue = string.Empty;
             var fields = new List<EmbedField>();
+
             foreach (var contentString in content.Split("|"))
             {
                 var filteredTitle = FilterArgs(contentString, "title=");
@@ -191,6 +182,7 @@ namespace Kaida.Library.Extensions
         private static string FilterArgs(string content, string arg)
         {
             var filteredContent = string.Empty;
+
             if (content.ToLowerInvariant().Contains(arg))
             {
                 filteredContent = content.TrimStart('=').TrimEnd('|');
