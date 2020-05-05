@@ -1,4 +1,5 @@
 ﻿using Kaida.Database.Models.Guilds;
+using Kaida.Database.Models.Infrastructure;
 using Kaida.Database.Models.Users;
 using Microsoft.EntityFrameworkCore;
 
@@ -21,6 +22,7 @@ namespace Kaida.Database
 
         public DbSet<User> Users { get; set; }
         public DbSet<Guild> Guilds { get; set; }
+        public DbSet<Statistic> Statistics { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

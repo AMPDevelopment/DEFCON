@@ -74,7 +74,7 @@ namespace Kaida.Handler
             _logger.Information("Registered all events!");
         }
 
-        private Task Ready(ReadyEventArgs e)
+        private async Task Ready(ReadyEventArgs e)
         {
             _logger.Information("Client is ready!");
 
@@ -86,10 +86,11 @@ namespace Kaida.Handler
 
                 foreach (var guild in guilds)
                 {
-                    totalUsers.AddRange(guild.Members.Values.Where(x => x.IsBot == false));
+                    var members = await guild.GetAllMembersAsync();
+                    totalUsers.AddRange(members.Where(x => x.IsBot == false));
                 }
 
-                var uniqueUsers = totalUsers.DistinctBy(x => x.Id).Count();
+                var uniqueUsers = totalUsers.DistinctBy(x => x.Id).ToList().Count;
 
                 var activities = new List<DiscordActivity>
                 {
@@ -107,8 +108,6 @@ namespace Kaida.Handler
                 await _client.UpdateStatusAsync(activities.ElementAtOrDefault(_activityIndex), UserStatus.Online, DateTimeOffset.UtcNow);
                 _activityIndex = _activityIndex + 1 == activities.Count ? 0 : _activityIndex + 1;
             }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(60));
-
-            return Task.CompletedTask;
         }
 
         private Task GuildDownloadCompleted(GuildDownloadCompletedEventArgs e)

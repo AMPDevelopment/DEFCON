@@ -34,11 +34,14 @@ namespace Kaida.Modules.Miscellaneous
             var guild = context.Guild;
             var channels = guild.Channels.Values.ToList();
             var roles = guild.Roles.Values.ToList();
-            var members = guild.Members.Values.ToList();
+            var members = guild.GetAllMembersAsync().Result.ToList();
             var thumbnailUrl = guild.IconUrl;
             var owner = guild.Owner;
             var prefix = _redis.StringGet($"{context.Guild.Id}:CommandPrefix").ToString();
-            var description = new StringBuilder().AppendLine($"Identity: {Formatter.InlineCode($"{guild.Id}")}").AppendLine($"Created at: {await guild.CreatedAtLongDateTimeString()}").AppendLine($"Server Prefix: {Formatter.InlineCode(prefix)}").ToString();
+            var description = new StringBuilder()
+                .AppendLine($"Identity: {Formatter.InlineCode($"{guild.Id}")}")
+                .AppendLine($"Created at: {await guild.CreatedAtLongDateTimeString()}")
+                .AppendLine($"Server Prefix: {Formatter.InlineCode(prefix)}").ToString();
 
             var guildAuthor = new DiscordEmbedBuilder.EmbedAuthor
             {
@@ -46,34 +49,47 @@ namespace Kaida.Modules.Miscellaneous
                 IconUrl = guild.IconUrl
             };
 
-            var ownerDetails = new StringBuilder().AppendLine($"Username: `{owner.GetUsertag()}`").AppendLine($"Identity: `{owner.Id}`").ToString();
+            var ownerDetails = new StringBuilder()
+                .AppendLine($"Username: `{owner.GetUsertag()}`")
+                .AppendLine($"Identity: `{owner.Id}`").ToString();
+
+            var premiumTierCount = guild.PremiumSubscriptionCount;
+            var premiumTierSubsLabel = premiumTierCount == 1 ? "1 subscription" : $"{premiumTierCount} subscriptions";
+            var premiumTierDetails = new StringBuilder()
+                .AppendLine($"{await guild.GetPremiumTier()}")
+                .AppendLine(premiumTierSubsLabel).ToString();
 
             var botsCount = members.Count(x => x.IsBot);
             var humansCount = guild.MemberCount - botsCount;
-            var membersOnlineCount = members.Count(member => member != null && member.Presence.Status == UserStatus.Online);
-
-            var memberDetails = new StringBuilder().AppendLine($"{guild.MemberCount} members").AppendLine($"{membersOnlineCount} online").AppendLine($"{humansCount} humans, {botsCount} bots").ToString();
+            var membersOnlineCount = members.Count(x => x.Presence != null && x.Presence.Status == UserStatus.Online);
+            var membersDnDCount = members.Count(x => x.Presence != null && x.Presence.Status == UserStatus.DoNotDisturb);
+            var membersIdleCount = members.Count(x => x.Presence != null && x.Presence.Status == UserStatus.Idle);
+            var membersLabel = members.Count == 1 ? "1 Member" : $"{members.Count} Members";
+            var memberDetails = new StringBuilder()
+                .AppendLine($"{membersOnlineCount} online")
+                .AppendLine($"{membersDnDCount} busy")
+                .AppendLine($"{membersIdleCount} idling")
+                .AppendLine($"{humansCount} humans, {botsCount} bots").ToString();
 
             var totalChannelsCount = channels.Count;
             var categoryChannelCount = channels.Count(x => x.IsCategory);
             var textChannelCount = channels.Count(x => x.Type == ChannelType.Text);
             var voiceChannelCount = channels.Count(x => x.Type == ChannelType.Voice);
 
-            var totalChannelsLabel = totalChannelsCount == 1 ? "1 total channel" : $"{totalChannelsCount} total channels";
+            var channelsLabel = totalChannelsCount == 1 ? "1 Channel" : $"{totalChannelsCount} Channels";
             var categoryChannelLabel = categoryChannelCount == 1 ? "1 category" : $"{categoryChannelCount} categories";
             var textChannelLabel = textChannelCount == 1 ? "1 text channel" : $"{textChannelCount} text channels";
             var voiceChannelLabel = voiceChannelCount == 1 ? "1 voice channel" : $"{voiceChannelCount} voice channels";
 
-            var channelDetails = new StringBuilder().AppendLine(totalChannelsLabel).AppendLine(categoryChannelLabel).AppendLine(textChannelLabel).AppendLine(voiceChannelLabel).ToString();
+            var channelDetails = new StringBuilder()
+                .AppendLine(categoryChannelLabel)
+                .AppendLine(textChannelLabel)
+                .AppendLine(voiceChannelLabel).ToString();
 
             var rolesCount = roles.Count(x => x.Name != "@everyone");
-            var rolesCountLabel = rolesCount == 1 ? "1 role" : $"{rolesCount} roles";
+            var rolesLabel = rolesCount == 1 ? "1 Role" : $"{rolesCount} Roles";
 
-            var rolesDetails = new StringBuilder().AppendLine(rolesCountLabel).AppendLine($"Use {Formatter.InlineCode($"{prefix}server roles")} to see a list with all roles.").ToString();
-
-            var premiumTierCount = guild.PremiumSubscriptionCount;
-            var premiumTierSubsLabel = premiumTierCount == 1 ? "1 subscription" : $"{premiumTierCount} subscriptions";
-            var premiumTierDetails = new StringBuilder().AppendLine($"{await guild.GetPremiumTier()}").AppendLine(premiumTierSubsLabel).ToString();
+            var rolesDetails = $"Use {Formatter.InlineCode($"{prefix}server roles")} to see a list with all roles.";
 
             var fields = new List<EmbedField>
             {
@@ -104,19 +120,19 @@ namespace Kaida.Modules.Miscellaneous
                 new EmbedField
                 {
                     Inline = true,
-                    Name = "Members",
+                    Name = membersLabel,
                     Value = memberDetails
                 },
                 new EmbedField
                 {
                     Inline = true,
-                    Name = "Channels",
+                    Name = channelsLabel,
                     Value = channelDetails
                 },
                 new EmbedField
                 {
                     Inline = false,
-                    Name = "Roles",
+                    Name = rolesLabel,
                     Value = rolesDetails
                 }
             };
