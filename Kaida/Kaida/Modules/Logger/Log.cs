@@ -12,13 +12,13 @@ namespace Kaida.Modules.Logger
     [Description("Log every event on the guild in a channel of your decision.")]
     public class Log : BaseCommandModule
     {
-        private readonly ILogger _logger;
-        private readonly IDatabase _redis;
+        private readonly ILogger logger;
+        private readonly IDatabase redis;
 
         public Log(ILogger logger, IDatabase redis)
         {
-            _logger = logger;
-            _redis = redis;
+            this.logger = logger;
+            this.redis = redis;
         }
 
         [Command("JoinedLeft")]
@@ -90,11 +90,11 @@ namespace Kaida.Modules.Logger
 
             if (string.IsNullOrWhiteSpace(status) || status == "enable")
             {
-                var key = _redis.StringGet($"{guild.Id}:Logs:{logLabel}");
+                var key = redis.StringGet($"{guild.Id}:Logs:{logLabel}");
 
                 if (key.IsNullOrEmpty)
                 {
-                    _redis.StringSet($"{guild.Id}:Logs:{logLabel}", channel.Id);
+                    redis.StringSet($"{guild.Id}:Logs:{logLabel}", channel.Id);
                     respond = await context.RespondAsync($"The {logLabel} log has been set to this channel.");
                 }
                 else
@@ -114,7 +114,7 @@ namespace Kaida.Modules.Logger
 
             if (status == "disable")
             {
-                _redis.KeyDelete($"{guild.Id}:Logs:{logLabel}");
+                redis.KeyDelete($"{guild.Id}:Logs:{logLabel}");
                 respond = await context.RespondAsync($"The {logLabel} log has been disabled.");
             }
 

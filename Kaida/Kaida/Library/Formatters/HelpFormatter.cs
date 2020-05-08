@@ -55,7 +55,9 @@ namespace Kaida.Library.Formatters
 
                         if (arg.IsOptional)
                         {
-                            args.Append(" (def: ").Append(Formatter.InlineCode(arg.DefaultValue is null ? "None" : arg.DefaultValue.ToString())).Append(")");
+                            args.Append(" (def: ")
+                                .Append(Formatter.InlineCode(arg.DefaultValue is null ? "None" : arg.DefaultValue.ToString()))
+                                .Append(")");
                             args.Append(" (optional)");
                         }
 

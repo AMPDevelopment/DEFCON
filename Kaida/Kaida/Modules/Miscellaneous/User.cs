@@ -8,6 +8,7 @@ using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
 using Kaida.Entities.Discord;
+using Kaida.Entities.Discord.Embeds;
 using Kaida.Library.Extensions;
 using Serilog;
 
@@ -17,11 +18,11 @@ namespace Kaida.Modules.Miscellaneous
     [Aliases("WhoIs")]
     public class User : BaseCommandModule
     {
-        private readonly ILogger _logger;
+        private readonly ILogger logger;
 
         public User(ILogger logger)
         {
-            _logger = logger;
+            this.logger = logger;
         }
 
         [GroupCommand]
@@ -41,67 +42,31 @@ namespace Kaida.Modules.Miscellaneous
 
         private async Task WhoIsPreset(CommandContext context, ulong userId)
         {
-            var user = await context.Guild.GetMemberAsync(userId);
-            var nickname = string.IsNullOrWhiteSpace(user.Nickname) ? string.Empty : $"({user.Nickname})";
-            var thumbnailUrl = user.AvatarUrl;
+            var member = await context.Guild.GetMemberAsync(userId);
+            var nickname = string.IsNullOrWhiteSpace(member.Nickname) ? string.Empty : $"({member.Nickname})";
 
-            var description = new StringBuilder().AppendLine($"User identity: `{user.Id}`").AppendLine($"Registered: {await user.CreatedAtLongDateTimeString()}");
+            var author = new EmbedAuthor { Name = $"{member.GetUsertag()} {nickname}", IconUrl = member.AvatarUrl };
 
-            if (user.Verified.HasValue) description.AppendLine($"Verified account: {user.Verified.Value}");
+            var description = new StringBuilder();
 
-            if (user.PremiumType.HasValue)
+            if (member.IsOwner)
             {
-                switch (user.PremiumType.Value)
-                {
-                    case PremiumType.Nitro:
-                        description.AppendLine("Premium: Nitro");
-
-                        break;
-                    case PremiumType.NitroClassic:
-                        description.AppendLine("Premium: Nitro Classic");
-
-                        break;
-                    default:
-                        throw new ArgumentOutOfRangeException();
-                }
+                description.AppendLine(Formatter.InlineCode("[Owner]"));
+            }
+            else if (member.IsBot)
+            {
+                description.AppendLine(Formatter.InlineCode("[Bot]"));
             }
 
-            var author = new DiscordEmbedBuilder.EmbedAuthor
-            {
-                Name = $"{user.GetUsertag()} {nickname}",
-                IconUrl = user.AvatarUrl
-            };
-
-            var fields = new List<EmbedField>
-            {
-                new EmbedField
-                {
-                    Inline = true, Name = "Joined Server at", Value = await user.JoinedAtLongDateTimeString()
-                }
-            };
-
-            if (user.PremiumSince.GetValueOrDefault().Offset != null)
-            {
-                fields.Add(new EmbedField
-                {
-                    Inline = true,
-                    Name = "Boosting since",
-                    Value = await user.PremiumSinceLongDateTimeString()
-                });
-            }
-
-            fields.Add(new EmbedField
-            {
-                Inline = true,
-                Name = "Server Infractions",
-                Value = "stfu its not ready now"
-            });
+            description.AppendLine($"Identity: `{member.Id}`")
+                       .AppendLine($"Registered: {await member.CreatedAtLongDateTimeString()}");
 
             var roles = string.Empty;
 
-            if (user.Roles.Any())
+            if (member.Roles.Any())
             {
-                var rolesSorted = user.Roles.ToList().OrderByDescending(x => x.Position);
+                var rolesSorted = member.Roles.ToList()
+                                        .OrderByDescending(x => x.Position);
 
                 roles = rolesSorted.Aggregate(roles, (current, role) => current + $"<@&{role.Id}> ");
             }
@@ -110,25 +75,84 @@ namespace Kaida.Modules.Miscellaneous
                 roles = "None";
             }
 
-            fields.Add(new EmbedField
-            {
-                Inline = false,
-                Name = "Roles",
-                Value = roles
-            });
+            var permissions = await UserKeyPermissions(member);
 
-            fields.Add(new EmbedField
+            var fields = new List<EmbedField>
             {
-                Inline = false,
-                Name = "Server Permissions",
-                Value = $"{user.Guild.Permissions.GetValueOrDefault()}"
-            });
-
-            var footer = new DiscordEmbedBuilder.EmbedFooter
-            {
-                Text = $"Requested by {context.User.GetUsertag()} | {context.User.Id}"
+                new EmbedField {Inline = true, Name = "Joined Server at", Value = await member.JoinedAtLongDateTimeString()},
+                new EmbedField {Inline = true, Name = "Boosting since", Value = await member.PremiumSinceLongDateTimeString()},
+                new EmbedField {Inline = true, Name = "Server Infractions", Value = "stfu its not ready now"},
+                new EmbedField {Inline = false, Name = "Roles", Value = roles}
             };
-            await context.EmbeddedMessage(description: description.ToString(), author: author, fields: fields, thumbnailUrl: thumbnailUrl, footer: footer, timestamp: DateTimeOffset.UtcNow);
+
+            if (!string.IsNullOrWhiteSpace(permissions))
+            {
+                fields.Add(new EmbedField()
+                {
+                    Name = "Key Permissions",
+                    Value = permissions,
+                    Inline = false
+                });
+            }
+
+            var embed = new Embed
+            {
+                Description = description.ToString(),
+                ThumbnailUrl = member.AvatarUrl,
+                Author = author,
+                Fields = fields
+            };
+
+            await context.SendEmbedMessageAsync(embed);
+        }
+
+        private async Task<string> UserKeyPermissions(DiscordMember member)
+        {
+            var permissions = new List<string>();
+            if (member.Roles.Any(x => x.CheckPermission(Permissions.Administrator) == PermissionLevel.Allowed))
+            {
+                permissions.Add(Permissions.Administrator.ToPermissionString());
+            }
+
+            if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageGuild) == PermissionLevel.Allowed))
+            {
+                permissions.Add(Permissions.ManageGuild.ToPermissionString());
+            }
+
+            if (member.Roles.Any(x => x.CheckPermission(Permissions.BanMembers) == PermissionLevel.Allowed))
+            {
+                permissions.Add(Permissions.BanMembers.ToPermissionString());
+            }
+            if (member.Roles.Any(x => x.CheckPermission(Permissions.KickMembers) == PermissionLevel.Allowed))
+            {
+                permissions.Add(Permissions.KickMembers.ToPermissionString());
+            }
+            if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageChannels) == PermissionLevel.Allowed))
+            {
+                permissions.Add(Permissions.ManageChannels.ToPermissionString());
+            }
+            if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageWebhooks) == PermissionLevel.Allowed))
+            {
+                permissions.Add(Permissions.ManageWebhooks.ToPermissionString());
+            }
+            if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageRoles) == PermissionLevel.Allowed))
+            {
+                permissions.Add(Permissions.ManageRoles.ToPermissionString());
+            }
+            if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageMessages) == PermissionLevel.Allowed))
+            {
+                permissions.Add(Permissions.ManageMessages.ToPermissionString());
+            }
+            if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageEmojis) == PermissionLevel.Allowed))
+            {
+                permissions.Add(Permissions.ManageEmojis.ToPermissionString());
+            }
+            if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageNicknames) == PermissionLevel.Allowed))
+            {
+                permissions.Add(Permissions.ManageNicknames.ToPermissionString());
+            }
+
+            return string.Join(", ", permissions);
         }
     }
 }

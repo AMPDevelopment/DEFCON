@@ -12,13 +12,13 @@ namespace Kaida.Modules
     [RequirePermissions(Permissions.ManageMessages)]
     public class Role : BaseCommandModule
     {
-        private readonly ILogger _logger;
         private readonly IReactionListener _reactionListener;
+        private readonly ILogger logger;
 
         public Role(IReactionListener reactionListener, ILogger logger)
         {
             _reactionListener = reactionListener;
-            _logger = logger;
+            this.logger = logger;
         }
 
         [Command("Listen")]

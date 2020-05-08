@@ -12,7 +12,8 @@ namespace Kaida.Library.Extensions
 
         public static async Task<string> PremiumSinceLongDateTimeString(this DiscordMember member)
         {
-            var boostingDateTime = member.PremiumSince.GetValueOrDefault().UtcDateTime;
+            var boostingDateTime = member.PremiumSince.GetValueOrDefault()
+                                         .UtcDateTime;
 
             return boostingDateTime >= member.Guild.CreationTimestamp.UtcDateTime ? $"{boostingDateTime.ToLongDateString()}, {boostingDateTime.ToShortTimeString()}" : "Not boosting";
         }

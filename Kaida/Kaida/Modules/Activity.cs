@@ -10,11 +10,11 @@ namespace Kaida.Modules
     [RequireOwner]
     public class Activity : BaseCommandModule
     {
-        private readonly ILogger _logger;
+        private readonly ILogger logger;
 
         public Activity(ILogger logger)
         {
-            _logger = logger;
+            this.logger = logger;
         }
 
         [Command("Activity")]
@@ -23,9 +23,12 @@ namespace Kaida.Modules
             var activity = new DiscordActivity();
 
             var items = content.Split("|");
-            activity.Name = items[1].Trim();
+            activity.Name = items[1]
+               .Trim();
 
-            switch (items[0].ToLowerInvariant().Trim())
+            switch (items[0]
+                   .ToLowerInvariant()
+                   .Trim())
             {
                 case "custom":
                     activity.ActivityType = ActivityType.Custom;
@@ -40,7 +43,8 @@ namespace Kaida.Modules
 
                     break;
                 case "streaming":
-                    activity.StreamUrl = items[2].Trim();
+                    activity.StreamUrl = items[2]
+                       .Trim();
                     activity.ActivityType = ActivityType.Streaming;
 
                     break;
