@@ -10,7 +10,9 @@ using Serilog;
 namespace Kaida.Modules.Moderation
 {
     [Group("Purge")]
+    [Aliases("Clear")]
     [RequirePermissions(Permissions.ManageMessages)]
+    [RequireGuild]
     public class Purge : BaseCommandModule
     {
         private readonly ILogger logger;

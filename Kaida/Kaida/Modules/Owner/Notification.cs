@@ -13,6 +13,7 @@ namespace Kaida.Modules.Owner
     [Group("Notification")]
     [Aliases("Notify", "Message", "Msg")]
     [RequireOwner]
+    [Hidden]
     public class Notification : BaseCommandModule
     {
         private readonly ILogger logger;

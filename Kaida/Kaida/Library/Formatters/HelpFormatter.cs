@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using DSharpPlus;
@@ -6,83 +7,91 @@ using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Converters;
 using DSharpPlus.CommandsNext.Entities;
 using DSharpPlus.Entities;
+using Kaida.Library.Extensions;
+using MoreLinq;
 
 namespace Kaida.Library.Formatters
 {
     public class HelpFormatter : BaseHelpFormatter
     {
-        private readonly DiscordEmbedBuilder output;
-        private string description;
-        private string name;
+        private readonly DiscordEmbedBuilder embed;
+        private Command Command { get; set; }
+        private CommandContext Context { get; set; }
+        private string Title { get; set; }
 
-        public HelpFormatter(CommandContext ctx)
-            : base(ctx)
+        public HelpFormatter(CommandContext context)
+            : base(context)
         {
-            output = new DiscordEmbedBuilder().WithColor(DiscordColor.Turquoise);
+            Context = context;
+            embed = new DiscordEmbedBuilder().WithTitle("Command list")
+                                             .WithColor(DiscordColor.Turquoise)
+                                             .AddRequestedByFooter(context.User);
         }
 
         public override CommandHelpMessage Build()
         {
-            var desc = $"Listing all commands and groups. Use {Formatter.InlineCode(".help <command>")} for more details.";
-
-            if (!string.IsNullOrWhiteSpace(name))
-            {
-                output.WithTitle(name);
-                desc = description ?? "No description provided.";
-            }
-
-            output.WithDescription(desc);
-
-            return new CommandHelpMessage(embed: output);
+            return new CommandHelpMessage(embed: embed);
         }
 
-        public override BaseHelpFormatter WithCommand(Command cmd)
+        public override BaseHelpFormatter WithCommand(Command command)
         {
-            name = ((cmd is CommandGroup) ? "Group: " : "Command: ") + cmd.QualifiedName;
-            description = cmd.Description;
+            Command = command;
+            embed.WithTitle($"Command [{Command.QualifiedName}]");
+            embed.Description = $"{Formatter.InlineCode(command.Name)}: {command.Description ?? "No description available."}";
 
-            if (cmd.Overloads?.Any() ?? false)
+            if (command is CommandGroup commandGroup && commandGroup.IsExecutableWithoutSubcommands)
             {
-                foreach (var overload in cmd.Overloads.OrderByDescending(o => o.Priority))
+                embed.Description = $"{embed.Description}\n\nThis group can be executed as a standalone command.";
+            }
+
+            if (command.Aliases?.Any() == true)
+            {
+                embed.AddField("Aliases", string.Join(", ", command.Aliases.Select(Formatter.InlineCode)), false);
+            }
+
+            if (command.Overloads?.Any() == true)
+            {
+                var arguments = new StringBuilder();
+
+                foreach (var overload in command.Overloads.OrderByDescending(x => x.Priority))
                 {
-                    var args = new StringBuilder();
+                    arguments.Append('`').Append(command.QualifiedName);
+
+                    foreach (var arg in overload.Arguments)
+                        arguments.Append(arg.IsOptional || arg.IsCatchAll ? " [" : " <").Append(arg.Name).Append(arg.IsCatchAll ? "..." : "").Append(arg.IsOptional || arg.IsCatchAll ? ']' : '>');
+
+                    arguments.Append("`\n");
 
                     foreach (var arg in overload.Arguments)
                     {
-                        args.Append(Formatter.InlineCode($"[{CommandsNext.GetUserFriendlyTypeName(arg.Type)}]"));
-                        args.Append(" ");
-                        args.Append(arg.Description ?? "No description provided.");
-
-                        if (arg.IsOptional)
-                        {
-                            args.Append(" (def: ")
-                                .Append(Formatter.InlineCode(arg.DefaultValue is null ? "None" : arg.DefaultValue.ToString()))
-                                .Append(")");
-                            args.Append(" (optional)");
-                        }
-
-                        args.AppendLine();
+                        arguments.Append('`').Append(arg.Name).Append(" (").Append(CommandsNext.GetUserFriendlyTypeName(arg.Type)).Append(")`: ").Append(arg.Description ?? "No description provided.").Append('\n');
                     }
+                        
 
-                    output.AddField($"{(cmd.Overloads.Count > 1 ? $"Overload #{overload.Priority}" : "Arguments")}", args.ToString());
+                    arguments.Append('\n');
                 }
-            }
 
-            if (cmd.Aliases?.Any() ?? false)
-                output.AddField("Aliases", string.Join(", ", cmd.Aliases.Select(Formatter.InlineCode)), true);
+                embed.AddField("Arguments", arguments.ToString().Trim(), false);
+            }
 
             return this;
         }
 
         public override BaseHelpFormatter WithSubcommands(IEnumerable<Command> subcommands)
         {
-            var enumerable = subcommands.ToList();
+            var categories = subcommands.Where(x => x.Name != "help" && x.IsHidden == false).Select(c => c.Category()).DistinctBy(x => x);
 
-            if (enumerable.Any())
+            foreach (var category in categories)
             {
-                output.AddField((name is null) ? "Commands" : "Subcommands", string.Join(", ", enumerable.Select(c => Formatter.InlineCode(c.Name))));
+                embed.AddField(Command != null ? "Subcommands" : category, string.Join(", ", subcommands.Where(c => c.Category() == category).Select(x => Formatter.InlineCode(x.Name))), false);
             }
 
+            if (Command == null)
+            {
+                embed.AddField("For more information type", $"{ApplicationInformation.DefaultPrefix}help <command>", false);
+                embed.AddField("Support Server", Formatter.MaskedUrl("Join our support server", new Uri(ApplicationInformation.DiscordServer)), true);
+                embed.AddField("Add Kaida", Formatter.MaskedUrl("Invite Kaida to your guild", new Uri(Context.Client.GenerateInviteLink())), true);
+            }
             return this;
         }
     }

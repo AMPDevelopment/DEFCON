@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -8,14 +9,18 @@ using DSharpPlus.Entities;
 using DSharpPlus.Interactivity;
 using DSharpPlus.Interactivity.Enums;
 using ImageMagick;
+using Kaida.Data.Configuration;
+using Kaida.Data.Guilds;
 using Kaida.Handler;
+using Kaida.Library.Extensions;
 using Kaida.Library.Formatters;
 using Kaida.Library.Logger;
-using Kaida.Library.Reaction;
+using Kaida.Library.Redis;
+using Kaida.Library.Services.Reactions;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
-using StackExchange.Redis;
-using System.Diagnostics;
+using StackExchange.Redis.Extensions.Core.Abstractions;
+using StackExchange.Redis.Extensions.Newtonsoft;
 
 namespace Kaida
 {
@@ -26,13 +31,12 @@ namespace Kaida
         private ClientEventHandler clientEventHandler;
         private CommandEventHandler commandEventHandler;
         private CommandsNextExtension commandsNext;
-        private int database;
         private ILogger logger;
-        private IReactionListener reactionListener;
-        private IDatabase redis;
+        private IReactionService reactionService;
+        private IRedisDatabase redis;
         private IServiceProvider serviceProvider;
         private IServiceCollection services;
-        private RedisValue token;
+        private Config config;
 
         public static void Main(string[] args)
         {
@@ -70,57 +74,41 @@ namespace Kaida
 
         private async Task Setup()
         {
-            bool validInput;
-            bool validRedisInstance;
+            var redisSetup = new Setup(logger);
 
-            logger.Information("Initializing the Redis this.database setup...");
-            logger.Warning("The application does not check if the redis database instance is already in use or not!");
+            logger.Information("Initializing the services setup...");
+            services = new ServiceCollection().AddSingleton(logger)
+                                              .AddStackExchangeRedisExtensions<NewtonsoftSerializer>(redisSetup.RedisConfiguration);
 
-            do
-            {
-                Console.Write("Please enter your Redis database instance [0-15]: ");
-                var input = Console.ReadLine();
-                validInput = int.TryParse(input, out database);
+            serviceProvider = services.BuildServiceProvider();
+            redis = serviceProvider.GetService<IRedisDatabase>();
 
-                if (!validInput)
-                {
-                    logger.Error("Input is not an integer.");
-                }
+            reactionService = new ReactionService(logger, redis);
+            services.AddSingleton(reactionService);
+            serviceProvider = services.BuildServiceProvider();
+            logger.Information("Successfully setup the services.");
 
-                if (database > 15 || database < 0)
-                {
-                    logger.Error("Not a valid database instance. Redis supports only zero (0) till fifteen (15).");
-                    validRedisInstance = false;
-                }
-                else
-                {
-                    logger.Information("Valid Redis this.database instance.");
-                    validRedisInstance = true;
-                }
-            } while (validInput == false || validRedisInstance == false);
+            config = await redis.GetAsync<Config>(RedisKeyNaming.Config);
 
-            try
-            {
-                logger.Information("Connecting to Redis this.database '127.0.0.1:6379'...");
-                var redisMultiplexer = await ConnectionMultiplexer.ConnectAsync("127.0.0.1:6379");
-                redis = redisMultiplexer.GetDatabase(database);
-                logger.Information($"Successfully connected to database '{redis.Database}'.");
-            }
-            catch (Exception e)
-            {
-                logger.Fatal(e, "Redis connection failed.");
-                Environment.Exit(102);
-            }
-
-            token = redis.StringGet("discordToken");
-
-            if (token.IsNullOrEmpty)
+            if (config == null || string.IsNullOrWhiteSpace(config.Token))
             {
                 logger.Information("Initializing the bot token setup...");
                 Console.Write("Your bot token: ");
-                var newToken = Console.ReadLine();
-                redis.StringSet("discordToken", newToken);
-                token = newToken;
+                var token = Console.ReadLine();
+
+                if (config == null)
+                {
+                    await redis.AddAsync<Config>(RedisKeyNaming.Config, new Config()
+                    {
+                        Token = token
+                    });
+                }
+                else if (string.IsNullOrWhiteSpace(config.Token))
+                {
+                    config.Token = token;
+                    await redis.ReplaceAsync<Config>(RedisKeyNaming.Config, config);
+                }
+                
                 logger.Information("Successfully set the bot token into the database.");
             }
             else
@@ -128,15 +116,6 @@ namespace Kaida
                 logger.Information("Discord token is already set and will be used from the database.");
             }
 
-            logger.Information("Initializing the services setup...");
-            reactionListener = new ReactionListener(logger, redis);
-
-            services = new ServiceCollection().AddSingleton(redis)
-                                              .AddSingleton(logger)
-                                              .AddSingleton(reactionListener);
-
-            serviceProvider = services.BuildServiceProvider();
-            logger.Information("Successfully setup the services.");
             OpenCL.IsEnabled = false;
             logger.Information("Disabled GPU acceleration.");
             await Task.CompletedTask.ConfigureAwait(true);
@@ -145,11 +124,10 @@ namespace Kaida
         private async Task Login()
         {
             logger.Information("Initializing the client setup...");
-            var activity = new DiscordActivity("ur mom is pretty gae", ActivityType.Custom);
 
             client = new DiscordShardedClient(new DiscordConfiguration
             {
-                Token = token,
+                Token = config.Token,
                 TokenType = TokenType.Bot,
                 DateTimeFormat = "dd-MM-yyyy HH:mm",
                 AutoReconnect = true,
@@ -166,30 +144,29 @@ namespace Kaida
             {
                 Services = serviceProvider,
                 PrefixResolver = PrefixResolverAsync,
-                EnableMentionPrefix = false,
+                EnableMentionPrefix = true,
                 EnableDms = true,
                 DmHelp = true,
-                EnableDefaultHelp = true
+                EnableDefaultHelp = true,
+                UseDefaultCommandHandler = true
             };
 
             logger.Information("Commands configuration setup done.");
 
-            var icfg = new InteractivityConfiguration {PollBehaviour = PollBehaviour.KeepEmojis, Timeout = TimeSpan.FromMinutes(2)};
+            var icfg = new InteractivityConfiguration { PollBehaviour = PollBehaviour.KeepEmojis, Timeout = TimeSpan.FromMinutes(2) };
 
             logger.Information("Interactivity configuration setup done.");
             logger.Information("Connecting all shards...");
             await client.StartAsync()
                         .ConfigureAwait(true);
-            await client.UpdateStatusAsync(activity, UserStatus.Online)
-                        .ConfigureAwait(true);
             logger.Information("Setting up client event handler...");
-            clientEventHandler = new ClientEventHandler(client, logger, redis, reactionListener);
+            clientEventHandler = new ClientEventHandler(client, logger, redis, reactionService);
 
             foreach (var shard in client.ShardClients.Values)
             {
                 logger.Information($"Applying configs to shard {shard.ShardId}...");
                 commandsNext = shard.UseCommandsNext(ccfg);
-                commandsNext.RegisterCommands(Assembly.GetEntryAssembly());
+                commandsNext.RegisterCommands(Assembly.GetExecutingAssembly());
                 commandsNext.SetHelpFormatter<HelpFormatter>();
                 shard.UseInteractivity(icfg);
                 logger.Information($"Settings up command event handler for the shard {shard.ShardId}...");
@@ -206,18 +183,23 @@ namespace Kaida
 
         public Task<int> PrefixResolverAsync(DiscordMessage msg)
         {
-            if (msg.Channel.IsPrivate) return Task.FromResult(msg.GetStringPrefixLength("$"));
+            if (msg.Channel.IsPrivate) return Task.FromResult(msg.GetStringPrefixLength(ApplicationInformation.DefaultPrefix));
 
-            var prefix = redis.StringGet($"{msg.Channel.Guild.Id}:CommandPrefix");
+            var guild = redis.GetAsync<Guild>(RedisKeyNaming.Guild(msg.Channel.GuildId))
+                             .GetAwaiter()
+                             .GetResult();
+
+            var prefix = guild.Prefix;
 
             if (!string.IsNullOrWhiteSpace(prefix))
             {
                 return Task.FromResult(msg.GetStringPrefixLength(prefix));
             }
 
-            redis.StringSet($"{msg.Channel.Guild.Id}:CommandPrefix", "$");
-
-            return Task.FromResult(msg.GetStringPrefixLength("$"));
+            guild.Prefix = ApplicationInformation.DefaultPrefix;
+            redis.ReplaceAsync<Guild>(RedisKeyNaming.Guild(msg.Channel.GuildId), guild);
+            
+            return Task.FromResult(msg.GetStringPrefixLength(ApplicationInformation.DefaultPrefix));
         }
     }
 }

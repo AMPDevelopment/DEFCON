@@ -1,21 +1,26 @@
 ﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
 using DSharpPlus.Entities;
+using Kaida.Common.Enums;
+using Kaida.Data.Guilds;
+using Kaida.Library.Redis;
 using Serilog;
-using StackExchange.Redis;
+using StackExchange.Redis.Extensions.Core.Abstractions;
 
 namespace Kaida.Modules.Logger
 {
     [Group("Log")]
     [Description("Log every event on the guild in a channel of your decision.")]
+    [RequireGuild]
     public class Log : BaseCommandModule
     {
         private readonly ILogger logger;
-        private readonly IDatabase redis;
+        private readonly IRedisDatabase redis;
 
-        public Log(ILogger logger, IDatabase redis)
+        public Log(ILogger logger, IRedisDatabase redis)
         {
             this.logger = logger;
             this.redis = redis;
@@ -81,26 +86,54 @@ namespace Kaida.Modules.Logger
             await LogSetup(context, status, LogType.Guild);
         }
 
+        [Command("AutoMod")]
+        public async Task AutoMod(CommandContext context, string status = null)
+        {
+            await LogSetup(context, status, LogType.AutoMod);
+        }
+
         private async Task LogSetup(CommandContext context, string status, LogType logType)
         {
             var guild = context.Guild;
             var channel = context.Channel;
             var logLabel = await SetLogTypeGetLogLabel(logType);
+            var guildData = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(guild.Id));
+            var log = guildData.Logs.First(x => x.LogType == logType);
+
+            DiscordChannel loggedChannel = null;
             DiscordMessage respond = null;
 
-            if (string.IsNullOrWhiteSpace(status) || status == "enable")
+            if (log != null)
             {
-                var key = redis.StringGet($"{guild.Id}:Logs:{logLabel}");
+                loggedChannel = guild.GetChannel(log.ChannelId);
+            }
 
-                if (key.IsNullOrEmpty)
+            if (string.IsNullOrWhiteSpace(status))
+            {
+                if (loggedChannel != null)
                 {
-                    redis.StringSet($"{guild.Id}:Logs:{logLabel}", channel.Id);
+                    respond = await context.RespondAsync($"The {logLabel} log has been set to {loggedChannel.Mention}");
+                }
+                else
+                {
+                    respond = await context.RespondAsync($"The {logLabel} log has not been set to any channel.");
+                }
+            }
+            else
+            {
+                if (log == null)
+                {
+                    guildData.Logs.Add(new Data.Guilds.Log()
+                    {
+                        ChannelId = channel.Id,
+                        LogType = logType
+                    });
+
+                    redis.ReplaceAsync<Guild>(RedisKeyNaming.Guild(guild.Id), guildData);
                     respond = await context.RespondAsync($"The {logLabel} log has been set to this channel.");
                 }
                 else
                 {
-                    var loggedChannel = guild.GetChannel((ulong) key);
-
                     if (loggedChannel.Id == channel.Id)
                     {
                         respond = await context.RespondAsync($"The {logLabel} log is already set to this channel.");
@@ -114,8 +147,17 @@ namespace Kaida.Modules.Logger
 
             if (status == "disable")
             {
-                redis.KeyDelete($"{guild.Id}:Logs:{logLabel}");
-                respond = await context.RespondAsync($"The {logLabel} log has been disabled.");
+                if (log != null)
+                {
+                    guildData.Logs.Remove(log);
+
+                    await redis.ReplaceAsync<Guild>(RedisKeyNaming.Guild(guild.Id), guildData);
+                    respond = await context.RespondAsync($"The {logLabel} log has been disabled.");
+                }
+                else
+                {
+                    respond = await context.RespondAsync($"You can't disable something which is not even activated.");
+                }
             }
 
             if (respond != null)
@@ -132,43 +174,47 @@ namespace Kaida.Modules.Logger
             switch (logType)
             {
                 case LogType.JoinedLeft:
-                    logLabel = "JoinedLeftEvent";
+                    logLabel = "JoinedLeft";
 
                     break;
                 case LogType.Invite:
-                    logLabel = "InviteEvent";
+                    logLabel = "Invite";
 
                     break;
                 case LogType.Message:
-                    logLabel = "MessageEvent";
+                    logLabel = "Message";
 
                     break;
                 case LogType.Voice:
-                    logLabel = "VoiceEvent";
+                    logLabel = "Voice";
 
                     break;
                 case LogType.Nickname:
-                    logLabel = "NicknameEvent";
+                    logLabel = "Nickname";
 
                     break;
                 case LogType.Warn:
-                    logLabel = "WarnEvent";
+                    logLabel = "Warn";
 
                     break;
                 case LogType.Mute:
-                    logLabel = "MuteEvent";
+                    logLabel = "Mute";
 
                     break;
                 case LogType.Kick:
-                    logLabel = "KickEvent";
+                    logLabel = "Kick";
 
                     break;
                 case LogType.Ban:
-                    logLabel = "BanEvent";
+                    logLabel = "Ban";
 
                     break;
                 case LogType.Guild:
-                    logLabel = "GuildEvent";
+                    logLabel = "Guild";
+
+                    break;
+                case LogType.AutoMod:
+                    logLabel = "AutoMod";
 
                     break;
             }

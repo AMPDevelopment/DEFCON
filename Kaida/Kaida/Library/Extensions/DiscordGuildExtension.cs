@@ -79,23 +79,6 @@ namespace Kaida.Library.Extensions
                         .ToList();
         }
 
-        /// <summary>
-        ///     Ban every <see cref="DiscordMember" /> on the <see cref="DiscordGuild" /> which are not the owner or a bot.
-        /// </summary>
-        /// <param name="guild">Represents the <see cref="DiscordGuild" />.</param>
-        /// <returns></returns>
-        public static async Task DoBanAllMembers(this DiscordGuild guild)
-        {
-            var bot = await guild.GetMemberAsync(guild.CurrentMember.Id);
-            var users = guild.Members.Values.Where(x => x.Hierarchy < bot.Hierarchy)
-                             .ToList();
-
-            foreach (var user in users)
-            {
-                await user.BanAsync();
-            }
-        }
-
         public static async Task<string> CreatedAtLongDateTimeString(this DiscordGuild guild)
         {
             return $"{guild.CreationTimestamp.UtcDateTime.ToLongDateString()}, {guild.CreationTimestamp.UtcDateTime.ToShortTimeString()}";

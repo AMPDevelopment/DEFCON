@@ -24,19 +24,19 @@ namespace Kaida.Library.Extensions
         /// <param name="footer">The footer.</param>
         /// <param name="timestamp">The timestamp.</param>
         /// <returns>Returns a embedded message in the channel in which the call was triggered.</returns>
-        public static async Task SendEmbedMessageAsync(this CommandContext context, Embed embed)
+        public static async Task SendEmbedMessageAsync(this CommandContext context, Embed embed, EmbedFooterStyle embedFooterStyle = EmbedFooterStyle.Default)
         {
-            await context.Channel.SendMessageAsync("", false, EmbedBuilder(embed, context.User));
+            await context.Channel.SendMessageAsync("", false, EmbedBuilder(embed, context.User, embedFooterStyle));
         }
 
-        public static async Task SendEmbedMessageAsync(this DiscordChannel channel, Embed embed, DiscordUser user = null)
+        public static async Task SendEmbedMessageAsync(this DiscordChannel channel, Embed embed, DiscordUser user = null, EmbedFooterStyle embedFooterStyle = EmbedFooterStyle.Default)
         {
-            await channel.SendMessageAsync("", false, EmbedBuilder(embed, user));
+            await channel.SendMessageAsync("", false, EmbedBuilder(embed, user, embedFooterStyle));
         }
 
-        public static async Task SendEmbedMessageAsync(this DiscordMember member, Embed embed)
+        public static async Task SendEmbedMessageAsync(this DiscordMember member, Embed embed, EmbedFooterStyle embedFooterStyle = EmbedFooterStyle.Default)
         {
-            await member.SendMessageAsync("", false, EmbedBuilder(embed, member));
+            await member.SendMessageAsync("", false, EmbedBuilder(embed, member, embedFooterStyle));
         }
 
         public static async Task SendFilteredEmbedMessageAsync(this CommandContext context, string content)
@@ -46,7 +46,7 @@ namespace Kaida.Library.Extensions
             var title = filteredParameters[0] as string;
             var description = filteredParameters[1] as string;
             var url = filteredParameters[2] as string;
-            var thumbnail = filteredParameters[2] as string;
+            var thumbnail = filteredParameters[3] as string;
             var image = filteredParameters[4] as string;
             var fields = new List<EmbedField>();
 
@@ -65,7 +65,7 @@ namespace Kaida.Library.Extensions
                 Fields = fields
             };
 
-            await context.SendEmbedMessageAsync(embed);
+            await context.SendEmbedMessageAsync(embed, EmbedFooterStyle.None);
         }
 
         public static async Task SendFilteredEmbedMessageAsync(this DiscordMessage message, string content)
@@ -94,12 +94,19 @@ namespace Kaida.Library.Extensions
                 Fields = fields
             };
 
-            var embedBuilder = EmbedBuilder(embed, message.Author);
+            var embedBuilder = EmbedBuilder(embed, message.Author, EmbedFooterStyle.None);
 
             await message.ModifyAsync("", embedBuilder);
         }
 
-        private static DiscordEmbed EmbedBuilder(Embed embed, DiscordUser user)
+        public static DiscordEmbedBuilder AddRequestedByFooter(this DiscordEmbedBuilder embed, DiscordUser user)
+        {
+            embed.Footer = new DiscordEmbedBuilder.EmbedFooter {Text = $"Requested by {user.GetUsertag()} | {user.Id}", IconUrl = user.AvatarUrl};
+
+            return embed;
+        }
+
+        private static DiscordEmbed EmbedBuilder(Embed embed, DiscordUser user, EmbedFooterStyle embedFooterStyle = EmbedFooterStyle.Default)
         {
             var embedBuilder = new DiscordEmbedBuilder
             {
@@ -125,18 +132,21 @@ namespace Kaida.Library.Extensions
                 }
             }
 
-            if (embed.Footer != null)
+            if (embedFooterStyle != EmbedFooterStyle.None)
             {
-                embedBuilder.WithFooter(embed.Footer.Text, embed.Footer.IconUrl);
-            }
-            else
-            {
-                if (user != null)
+                if (embed.Footer != null)
                 {
-                    embedBuilder.WithFooter($"Requested by {user.GetUsertag()} | {user.Id}", user.AvatarUrl);
+                    embedBuilder.WithFooter(embed.Footer.Text, embed.Footer.IconUrl);
+                }
+                else
+                {
+                    if (user != null)
+                    {
+                        embedBuilder.WithFooter($"Requested by {user.GetUsertag()} | {user.Id}", user.AvatarUrl);
+                    }
                 }
             }
-
+            
             return embedBuilder.Build();
         }
 
@@ -168,7 +178,7 @@ namespace Kaida.Library.Extensions
                 var filteredFieldValue = FilterArgs(contentString, "value=");
                 fieldValue = filteredFieldValue == string.Empty ? fieldValue : filteredFieldValue;
                 var filteredFieldInline = FilterArgs(contentString, "inline=");
-                var fieldInline = !filteredFieldInline.Contains("false");
+                var fieldInline = filteredFieldInline == "true" ? true : false;
 
                 if (fieldName != string.Empty && fieldValue != string.Empty)
                 {
@@ -204,5 +214,12 @@ namespace Kaida.Library.Extensions
 
             return filteredContent;
         }
+    }
+
+    public enum EmbedFooterStyle
+    {
+        None,
+        Default,
+        Custom
     }
 }

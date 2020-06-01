@@ -7,69 +7,73 @@ using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
+using DSharpPlus.Exceptions;
+using Kaida.Common.Enums;
+using Kaida.Data.Guilds;
 using Kaida.Entities.Discord.Embeds;
 using Kaida.Library.Extensions;
-using Kaida.Library.Reaction;
+using Kaida.Library.Redis;
+using Kaida.Library.Services.Reactions;
 using MoreLinq.Extensions;
 using Serilog;
-using StackExchange.Redis;
+using StackExchange.Redis.Extensions.Core.Abstractions;
 
 namespace Kaida.Handler
 {
     public class ClientEventHandler
     {
-        private readonly DiscordShardedClient _client;
-        private readonly IReactionListener _reactionListener;
+        private readonly DiscordShardedClient client;
         private readonly ILogger logger;
-        private readonly IDatabase redis;
-        private int _activityIndex;
-        private Timer _timer;
+        private readonly IReactionService reactionService;
+        private readonly IRedisDatabase redis;
+        private int activityIndex;
+        private Timer timer;
 
-        public ClientEventHandler(DiscordShardedClient client, ILogger logger, IDatabase redis, IReactionListener reactionListener)
+        public ClientEventHandler(DiscordShardedClient client, ILogger logger, IRedisDatabase redis, IReactionService reactionService)
         {
-            _client = client;
+            this.client = client;
             this.logger = logger;
             this.redis = redis;
-            _reactionListener = reactionListener;
+            this.reactionService = reactionService;
 
             this.logger.Information("Register events...");
-            _client.Ready += Ready;
-            _client.GuildDownloadCompleted += GuildDownloadCompleted;
-            _client.GuildAvailable += GuildAvailable;
-            _client.GuildUnavailable += GuildUnavailable;
-            _client.GuildCreated += GuildCreated;
-            _client.GuildUpdated += GuildUpdated;
-            _client.GuildDeleted += GuildDeleted;
-            _client.GuildEmojisUpdated += GuildEmojisUpdated;
-            _client.GuildIntegrationsUpdated += GuildIntegrationsUpdated;
-            _client.ChannelCreated += ChannelCreated;
-            _client.ChannelDeleted += ChannelDeleted;
-            _client.ChannelUpdated += ChannelUpdated;
-            _client.GuildRoleCreated += GuildRoleCreated;
-            _client.GuildRoleUpdated += GuildRoleUpdated;
-            _client.GuildRoleDeleted += GuildRoleDeleted;
-            _client.GuildMemberAdded += GuildMemberAdded;
-            _client.GuildMemberRemoved += GuildMemberRemoved;
-            _client.GuildMemberUpdated += GuildMemberUpdated;
-            _client.GuildBanAdded += GuildBanAdded;
-            _client.GuildBanRemoved += GuildBanRemoved;
-            _client.DmChannelCreated += DmChannelCreated;
-            _client.DmChannelDeleted += DmChannelDeleted;
-            _client.MessageCreated += MessageCreated;
-            _client.MessageUpdated += MessageUpdated;
-            _client.MessageDeleted += MessageDeleted;
-            _client.MessagesBulkDeleted += MessagesBulkDeleted;
-            _client.MessageReactionAdded += MessageReactionAdded;
-            _client.MessageReactionRemoved += MessageReactionRemoved;
-            _client.MessageReactionRemovedEmoji += MessageReactionRemovedEmoji;
-            _client.MessageReactionsCleared += MessageReactionsCleared;
-            _client.VoiceServerUpdated += VoiceServerUpdated;
-            _client.VoiceStateUpdated += VoiceStateUpdated;
-            _client.SocketOpened += SocketOpened;
-            _client.SocketClosed += SocketClosed;
-            _client.SocketErrored += SocketErrored;
-            _client.ClientErrored += ClientErrored;
-            _client.UnknownEvent += UnknownEvent;
+            this.client.Ready += Ready;
+            this.client.GuildDownloadCompleted += GuildDownloadCompleted;
+            this.client.GuildAvailable += GuildAvailable;
+            this.client.GuildUnavailable += GuildUnavailable;
+            this.client.GuildCreated += GuildCreated;
+            this.client.GuildUpdated += GuildUpdated;
+            this.client.GuildDeleted += GuildDeleted;
+            this.client.GuildEmojisUpdated += GuildEmojisUpdated;
+            this.client.GuildIntegrationsUpdated += GuildIntegrationsUpdated;
+            this.client.ChannelCreated += ChannelCreated;
+            this.client.ChannelDeleted += ChannelDeleted;
+            this.client.ChannelUpdated += ChannelUpdated;
+            this.client.GuildRoleCreated += GuildRoleCreated;
+            this.client.GuildRoleUpdated += GuildRoleUpdated;
+            this.client.GuildRoleDeleted += GuildRoleDeleted;
+            this.client.GuildMemberAdded += GuildMemberAdded;
+            this.client.GuildMemberRemoved += GuildMemberRemoved;
+            this.client.GuildMemberUpdated += GuildMemberUpdated;
+            this.client.GuildBanAdded += GuildBanAdded;
+            this.client.GuildBanRemoved += GuildBanRemoved;
+            this.client.DmChannelCreated += DmChannelCreated;
+            this.client.DmChannelDeleted += DmChannelDeleted;
+            this.client.MessageCreated += MessageCreated;
+            this.client.MessageUpdated += MessageUpdated;
+            this.client.MessageDeleted += MessageDeleted;
+            this.client.MessagesBulkDeleted += MessagesBulkDeleted;
+            this.client.MessageReactionAdded += MessageReactionAdded;
+            this.client.MessageReactionRemoved += MessageReactionRemoved;
+            this.client.MessageReactionRemovedEmoji += MessageReactionRemovedEmoji;
+            this.client.MessageReactionsCleared += MessageReactionsCleared;
+            this.client.VoiceServerUpdated += VoiceServerUpdated;
+            this.client.VoiceStateUpdated += VoiceStateUpdated;
+            this.client.SocketOpened += SocketOpened;
+            this.client.SocketClosed += SocketClosed;
+            this.client.SocketErrored += SocketErrored;
+            this.client.ClientErrored += ClientErrored;
+            this.client.UnknownEvent += UnknownEvent;
             this.logger.Information("Registered all events!");
         }
 
@@ -77,7 +81,7 @@ namespace Kaida.Handler
         {
             logger.Information("Client is ready!");
 
-            _timer = new Timer(async _ =>
+            timer = new Timer(async _ =>
             {
                 var guilds = e.Client.Guilds.Values.ToList();
                 var guildsCount = guilds.Count;
@@ -93,9 +97,13 @@ namespace Kaida.Handler
                                             .ToList()
                                             .Count;
 
-                var activities = new List<DiscordActivity> {new DiscordActivity {ActivityType = ActivityType.Watching, Name = $"{guildsCount} servers"}, new DiscordActivity {ActivityType = ActivityType.ListeningTo, Name = $"{uniqueUsers} unique users"}};
-                await _client.UpdateStatusAsync(activities.ElementAtOrDefault(_activityIndex), UserStatus.Online, DateTimeOffset.UtcNow);
-                _activityIndex = _activityIndex + 1 == activities.Count ? 0 : _activityIndex + 1;
+                var activities = new List<DiscordActivity>
+                {
+                    new DiscordActivity {ActivityType = ActivityType.Watching, Name = $"{guildsCount} servers"}, 
+                    new DiscordActivity {ActivityType = ActivityType.ListeningTo, Name = $"{uniqueUsers} unique users"}
+                };
+                await client.UpdateStatusAsync(activities.ElementAtOrDefault(activityIndex), UserStatus.Online, DateTimeOffset.UtcNow);
+                activityIndex = activityIndex + 1 == activities.Count ? 0 : activityIndex + 1;
             }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(60));
         }
 
@@ -108,6 +116,7 @@ namespace Kaida.Handler
 
         private Task GuildAvailable(GuildCreateEventArgs e)
         {
+            redis.InitGuild(e.Guild.Id);
             logger.Information($"Guild '{e.Guild.Name}' ({e.Guild.Id}) became available.");
 
             return Task.CompletedTask;
@@ -123,13 +132,15 @@ namespace Kaida.Handler
         private Task GuildCreated(GuildCreateEventArgs e)
         {
             logger.Information($"Joined the guild '{e.Guild.Name}' ({e.Guild.Id}).");
+            redis.InitGuild(e.Guild.Id);
 
             return Task.CompletedTask;
         }
 
         private Task GuildUpdated(GuildUpdateEventArgs e)
         {
-            /* This would kill my bot */
+            logger.Information($"Guild '{e.GuildAfter.Name}' ({e.GuildAfter.Id}) has been updated.");
+
             return Task.CompletedTask;
         }
 
@@ -142,118 +153,271 @@ namespace Kaida.Handler
 
         private Task GuildEmojisUpdated(GuildEmojisUpdateEventArgs e)
         {
-            /* This would kill my bot */
+            logger.Information($"Guild '{e.Guild.Name}' ({e.Guild.Id}) has updated their emojis.");
+
             return Task.CompletedTask;
         }
 
         private Task GuildIntegrationsUpdated(GuildIntegrationsUpdateEventArgs e)
         {
-            /* This would kill my bot */
+            logger.Information($"Guild '{e.Guild.Name}' ({e.Guild.Id}) has updated their integrations.");
+
             return Task.CompletedTask;
         }
 
         private Task ChannelCreated(ChannelCreateEventArgs e)
         {
-            /* This would kill my bot */
+            var log = redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id))
+                           .GetAwaiter()
+                           .GetResult()
+                           .Logs.FirstOrDefault(x => x.LogType == LogType.Guild);
+
+            if (log != null)
+            {
+                var logChannel = e.Guild.GetChannel(log.ChannelId);
+
+                var embed = new Embed
+                {
+                    Title = ":KaidaNew: Channel created",
+                    Description = new StringBuilder().AppendLine($"Name: `{e.Channel.Name}` {e.Channel.Mention}")
+                                                     .AppendLine($"Identity: `{e.Channel.Id}`")
+                                                     .AppendLine($"Type: {e.Channel.Type.ToString()}")
+                                                     .ToString(),
+                    Color = DiscordColor.SpringGreen
+                };
+
+                logChannel.SendEmbedMessageAsync(embed, embedFooterStyle: EmbedFooterStyle.None);
+            }
+
+            logger.Information($"Channel '{e.Channel.Name}' ({e.Channel.Id}) has been created on guild '{e.Guild.Name}' ({e.Guild.Id}).");
+
             return Task.CompletedTask;
         }
 
         private Task ChannelUpdated(ChannelUpdateEventArgs e)
         {
-            /* This would kill my bot */
+            var log = redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id))
+                           .GetAwaiter()
+                           .GetResult()
+                           .Logs.FirstOrDefault(x => x.LogType == LogType.Guild);
+
+            if (!e.ChannelBefore.IsPrivate)
+            {
+                if (log != null)
+                {
+                    var logChannel = e.Guild.GetChannel(log.ChannelId);
+
+                    var description = new StringBuilder();
+
+                    description.AppendLine(e.ChannelBefore.Name == e.ChannelAfter.Name ? $"Name: `{e.ChannelAfter.Name}` {e.ChannelAfter.Mention}" : $"Name: `{e.ChannelBefore.Name}` to `{e.ChannelAfter.Name}` {e.ChannelAfter.Mention}");
+
+                    description.AppendLine($"Identity: `{e.ChannelAfter.Id}`")
+                               .AppendLine($"Type: {e.ChannelAfter.Type.ToString()}");
+
+                    var embed = new Embed
+                    {
+                        Title = ":KaidaUpdate: Channel updated", 
+                        Description = description.ToString(), 
+                        Color = DiscordColor.SpringGreen
+                    };
+
+                    logChannel.SendEmbedMessageAsync(embed, embedFooterStyle: EmbedFooterStyle.None);
+                }
+
+                logger.Information($"Channel '{e.ChannelAfter.Name}' ({e.ChannelAfter.Id}) has been updated on guild '{e.Guild.Name}' ({e.Guild.Id}).");
+            }
+
             return Task.CompletedTask;
         }
 
         private Task ChannelDeleted(ChannelDeleteEventArgs e)
         {
-            /* This would kill my bot */
+            var log = redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id))
+                           .GetAwaiter()
+                           .GetResult()
+                           .Logs.FirstOrDefault(x => x.LogType == LogType.Guild);
+
+            if (!e.Channel.IsPrivate)
+            {
+                if (log != null)
+                {
+                    var logChannel = e.Guild.GetChannel(log.ChannelId);
+
+                    var description = new StringBuilder();
+
+                    description.AppendLine($"Identity: `{e.Channel.Id}`")
+                               .AppendLine($"Type: {e.Channel.Type.ToString()}");
+
+                    var embed = new Embed
+                    {
+                        Title = ":KaidaErase: Channel updated", 
+                        Description = description.ToString(), 
+                        Color = DiscordColor.SpringGreen
+                    };
+
+                    logChannel.SendEmbedMessageAsync(embed, embedFooterStyle: EmbedFooterStyle.None);
+                }
+
+                logger.Information($"Channel '{e.Channel.Name}' ({e.Channel.Id}) has been deleted on guild '{e.Guild.Name}' ({e.Guild.Id}).");
+            }
+
             return Task.CompletedTask;
         }
 
         private Task GuildRoleCreated(GuildRoleCreateEventArgs e)
         {
-            /* This would kill my bot */
+            var log = redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id))
+                           .GetAwaiter()
+                           .GetResult()
+                           .Logs.FirstOrDefault(x => x.LogType == LogType.Guild);
+
+            if (log != null)
+            {
+                var logChannel = e.Guild.GetChannel(log.ChannelId);
+
+                var embed = new Embed
+                {
+                    Title = ":KaidaNew: Role created",
+                    Description = new StringBuilder().AppendLine($"Name: `{e.Role.Name}`")
+                                                     .AppendLine($"Identity: `{e.Role.Id}`")
+                                                     .ToString(),
+                    Color = DiscordColor.SpringGreen
+                };
+
+                logChannel.SendEmbedMessageAsync(embed, embedFooterStyle: EmbedFooterStyle.None);
+            }
+
+            logger.Information($"Role '{e.Role.Name}' ({e.Role.Id}) has been created on guild '{e.Guild.Name}' ({e.Guild.Id}).");
+
             return Task.CompletedTask;
         }
 
         private Task GuildRoleUpdated(GuildRoleUpdateEventArgs e)
         {
-            /* This would kill my bot */
+            var log = redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id))
+                           .GetAwaiter()
+                           .GetResult()
+                           .Logs.FirstOrDefault(x => x.LogType == LogType.Guild);
+
+            if (log != null)
+            {
+                var logChannel = e.Guild.GetChannel(log.ChannelId);
+
+                var description = new StringBuilder();
+
+                description.AppendLine(e.RoleBefore.Name == e.RoleAfter.Name ? $"Name: `{e.RoleAfter.Name}` {e.RoleAfter.Mention}" : $"Name: `{e.RoleBefore.Name}` to `{e.RoleAfter.Name}` {e.RoleAfter.Mention}");
+
+                description.AppendLine($"Identity: `{e.RoleAfter.Id}`");
+
+                var embed = new Embed
+                {
+                    Title = ":KaidaUpdate: Role updated", 
+                    Description = description.ToString(), 
+                    Color = DiscordColor.SpringGreen
+                };
+
+                logChannel.SendEmbedMessageAsync(embed, embedFooterStyle: EmbedFooterStyle.None);
+            }
+
+            logger.Information($"Role '{e.RoleAfter.Name}' ({e.RoleAfter.Id}) has been updated on guild '{e.Guild.Name}' ({e.Guild.Id}).");
+
             return Task.CompletedTask;
         }
 
         private Task GuildRoleDeleted(GuildRoleDeleteEventArgs e)
         {
-            /* This would kill my bot */
+            var log = redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id))
+                           .GetAwaiter()
+                           .GetResult()
+                           .Logs.FirstOrDefault(x => x.LogType == LogType.Guild);
+
+            if (log != null)
+            {
+                var logChannel = e.Guild.GetChannel(log.ChannelId);
+
+                var embed = new Embed
+                {
+                    Title = ":KaidaErase: Role deleted",
+                    Description = new StringBuilder().AppendLine($"Name: `{e.Role.Name}`")
+                                                     .AppendLine($"Identity: `{e.Role.Id}`")
+                                                     .ToString(),
+                    Color = DiscordColor.SpringGreen
+                };
+
+                logChannel.SendEmbedMessageAsync(embed, embedFooterStyle: EmbedFooterStyle.None);
+            }
+
+            logger.Information($"Role '{e.Role.Name}' ({e.Role.Id}) has been deleted on guild '{e.Guild.Name}' ({e.Guild.Id}).");
+
             return Task.CompletedTask;
         }
 
         private Task GuildMemberAdded(GuildMemberAddEventArgs e)
         {
-            var joinedLeftEventId = redis.StringGet($"{e.Guild.Id}:Logs:JoinedLeftEvent");
+            redis.InitUser(e.Member.Id);
 
-            var guild = e.Guild;
-            var member = e.Member;
+            var log = redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id))
+                           .GetAwaiter()
+                           .GetResult()
+                           .Logs.FirstOrDefault(x => x.LogType == LogType.JoinedLeft);
 
-            if (!string.IsNullOrWhiteSpace(joinedLeftEventId))
+            if (log != null)
             {
-                var logChannel = guild.GetChannel((ulong) joinedLeftEventId);
+                var logChannel = e.Guild.GetChannel(log.ChannelId);
 
                 var embed = new Embed
                 {
-                    Title = ":inbox_tray: Member joined",
-                    Description = new StringBuilder().AppendLine($"Username: `{member.GetUsertag()}`")
-                                                     .AppendLine($"User identity: `{member.Id}`")
-                                                     .AppendLine($"Registered: {member.CreatedAtLongDateTimeString().Result}")
+                    Title = ":KaidaJoined: Member joined",
+                    Description = new StringBuilder().AppendLine($"Username: `{e.Member.GetUsertag()}`")
+                                                     .AppendLine($"User identity: `{e.Member.Id}`")
+                                                     .AppendLine($"Registered: {e.Member.CreatedAtLongDateTimeString().Result}")
                                                      .ToString(),
                     Color = DiscordColor.SpringGreen,
-                    ThumbnailUrl = member.AvatarUrl,
-                    Footer = new EmbedFooter {Text = $"Member Id: {member.Id}"}
+                    ThumbnailUrl = e.Member.AvatarUrl
                 };
 
-                logChannel.SendEmbedMessageAsync(embed);
+                logChannel.SendEmbedMessageAsync(embed, embedFooterStyle: EmbedFooterStyle.None);
             }
 
-            logger.Information($"'{e.Member.GetUsertag()}' ({e.Member.Id}) has joined the guild '{e.Guild.Name}' ({e.Guild.Id}).");
+            logger.Information($"Member '{e.Member.GetUsertag()}' ({e.Member.Id}) has joined the guild '{e.Guild.Name}' ({e.Guild.Id}).");
 
             return Task.CompletedTask;
         }
 
         private Task GuildMemberRemoved(GuildMemberRemoveEventArgs e)
         {
-            var joinedLeftEventId = redis.StringGet($"{e.Guild.Id}:Logs:JoinedLeftEvent");
+            var log = redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id))
+                           .GetAwaiter()
+                           .GetResult()
+                           .Logs.FirstOrDefault(x => x.LogType == LogType.JoinedLeft);
 
-            var guild = e.Guild;
-            var member = e.Member;
-
-            if (!string.IsNullOrWhiteSpace(joinedLeftEventId))
+            if (log != null)
             {
-                var logChannel = guild.GetChannel((ulong) joinedLeftEventId);
+                var logChannel = e.Guild.GetChannel(log.ChannelId);
 
-                var roles = member.Roles.Any()
-                    ? member.Roles.Where(x => x.Name != "@everyone")
-                            .OrderByDescending(r => r.Position)
-                            .Aggregate("", (current, x) => current + $"{x.Mention} ")
+                var roles = e.Member.Roles.Any()
+                    ? e.Member.Roles.Where(x => x.Name != "@everyone")
+                       .OrderByDescending(r => r.Position)
+                       .Aggregate("", (current, x) => current + $"{x.Mention} ")
                     : "None";
 
                 var fields = new List<EmbedField> {new EmbedField {Inline = false, Name = "Roles", Value = roles}};
 
                 var embed = new Embed
                 {
-                    Title = ":outbox_tray: Member left",
-                    Description = new StringBuilder().AppendLine($"Username: `{member.GetUsertag()}`")
-                                                     .AppendLine($"User identity: `{member.Id}`")
+                    Title = ":KaidaLeft: Member left",
+                    Description = new StringBuilder().AppendLine($"Username: `{e.Member.GetUsertag()}`")
+                                                     .AppendLine($"User identity: `{e.Member.Id}`")
                                                      .ToString(),
                     Color = DiscordColor.IndianRed,
-                    ThumbnailUrl = member.AvatarUrl,
-                    Fields = fields,
-                    Footer = new EmbedFooter {Text = $"Member Id: {member.Id}"}
+                    ThumbnailUrl = e.Member.AvatarUrl,
+                    Fields = fields
                 };
 
-                logChannel.SendEmbedMessageAsync(embed);
+                logChannel.SendEmbedMessageAsync(embed, embedFooterStyle: EmbedFooterStyle.None);
             }
 
-            logger.Information($"'{e.Member.GetUsertag()}' ({e.Member.Id}) has left the guild '{e.Guild.Name}' ({e.Guild.Id}).");
+            logger.Information($"Member '{e.Member.GetUsertag()}' ({e.Member.Id}) has left the guild '{e.Guild.Name}' ({e.Guild.Id}).");
 
             return Task.CompletedTask;
         }
@@ -265,17 +429,20 @@ namespace Kaida.Handler
 
             if (before == after) return Task.CompletedTask;
 
-            var nicknameEventId = redis.StringGet($"{e.Guild.Id}:Logs:NicknameEvent");
+            var log = redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id))
+                           .GetAwaiter()
+                           .GetResult()
+                           .Logs.FirstOrDefault(x => x.LogType == LogType.Nickname);
 
-            if (!string.IsNullOrWhiteSpace(nicknameEventId))
+            if (log != null)
             {
-                var channel = e.Guild.GetChannel((ulong) nicknameEventId);
+                var channel = e.Guild.GetChannel(log.ChannelId);
 
                 var fields = new List<EmbedField> {new EmbedField {Inline = false, Name = "Before", Value = before}, new EmbedField {Inline = false, Name = "After", Value = after}};
 
                 var embed = new Embed
                 {
-                    Title = ":memo: Nickname changed",
+                    Title = ":KaidaEdit: Nickname changed",
                     Description = new StringBuilder().AppendLine($"Mention: {e.Member.Mention}")
                                                      .AppendLine($"Username: {Formatter.InlineCode(e.Member.GetUsertag())}")
                                                      .AppendLine($"Identity: {Formatter.InlineCode($"{e.Member.Id}")}")
@@ -310,7 +477,9 @@ namespace Kaida.Handler
 
         private Task DmChannelCreated(DmChannelCreateEventArgs e)
         {
-            /* This would kill my bot */
+            var user = e.Channel.Recipients.First(x => !x.IsBot);
+            logger.Information($"Direct message with '{user.GetUsertag()}' ({user.Id}) has been created.");
+
             return Task.CompletedTask;
         }
 
@@ -337,11 +506,14 @@ namespace Kaida.Handler
                 return Task.CompletedTask;
             }
 
-            var messageEventId = redis.StringGet($"{e.Guild.Id}:Logs:MessageEvent");
-            var logChannel = e.Guild.GetChannel((ulong) messageEventId);
+            var log = redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id))
+                           .GetAwaiter()
+                           .GetResult()
+                           .Logs.FirstOrDefault(x => x.LogType == LogType.Message);
 
-            if (!string.IsNullOrWhiteSpace(messageEventId))
+            if (log != null)
             {
+                var logChannel = e.Guild.GetChannel(log.ChannelId);
                 var contentNow = e.Message.Content;
                 var fields = new List<EmbedField>();
 
@@ -351,18 +523,33 @@ namespace Kaida.Handler
 
                     if (contentBefore.Equals(contentNow)) return Task.CompletedTask;
 
-                    fields.Add(new EmbedField {Inline = false, Name = "Before", Value = contentBefore});
+                    fields.Add(new EmbedField
+                    {
+                        Inline = false, 
+                        Name = "Before", 
+                        Value = contentBefore
+                    });
                 }
                 else
                 {
-                    fields.Add(new EmbedField {Inline = false, Name = "Before", Value = "The value is not available due to the message was send while the bot were offline or it's no longer in the cache."});
+                    fields.Add(new EmbedField
+                    {
+                        Inline = false, 
+                        Name = "Before", 
+                        Value = "The value is not available due to the message was send while the bot were offline or it's no longer in the cache."
+                    });
                 }
 
-                fields.Add(new EmbedField {Inline = false, Name = "After", Value = contentNow});
+                fields.Add(new EmbedField
+                {
+                    Inline = false, 
+                    Name = "After", 
+                    Value = contentNow
+                });
 
                 var embed = new Embed
                 {
-                    Title = ":memo: Message updated",
+                    Title = ":KaidaEdit: Message updated",
                     Description = new StringBuilder().AppendLine($"Message ({e.Message.Id}) updated in {e.Channel.Mention}.")
                                                      .AppendLine($"[Jump to message]({e.Message.JumpLink})")
                                                      .ToString(),
@@ -373,9 +560,9 @@ namespace Kaida.Handler
                 };
 
                 logChannel.SendEmbedMessageAsync(embed);
-
-                logger.Information($"The message ({e.Message.Id}) from '{e.Author.GetUsertag()}' ({e.Author.Id}) was updated in '{e.Channel.Name}' ({e.Channel.Id}) on '{e.Guild.Name}' ({e.Guild.Id}).");
             }
+
+            logger.Information($"The message ({e.Message.Id}) from '{e.Author.GetUsertag()}' ({e.Author.Id}) was updated in '{e.Channel.Name}' ({e.Channel.Id}) on '{e.Guild.Name}' ({e.Guild.Id}).");
 
             return Task.CompletedTask;
         }
@@ -384,56 +571,99 @@ namespace Kaida.Handler
         {
             if (e.Channel.IsPrivate)
             {
-                logger.Information(!string.IsNullOrWhiteSpace(e.Message.Content) ? $"The message ({e.Message.Id}) from '{e.Message.Author.GetUsertag()}' ({e.Message.Author.Id}) was deleted in the direct message." : $"The message ({e.Message.Id}) was deleted in the direct message.");
+                logger.Information(!string.IsNullOrWhiteSpace(e.Message.Content) 
+                                       ? $"The message ({e.Message.Id}) from '{e.Message.Author.GetUsertag()}' ({e.Message.Author.Id}) was deleted in the direct message." 
+                                       : $"The message ({e.Message.Id}) was deleted in the direct message.");
 
                 return Task.CompletedTask;
             }
 
-            var guildPrefix = redis.StringGet($"{e.Guild.Id}:CommandPrefix");
-            var messageEventId = redis.StringGet($"{e.Guild.Id}:Logs:MessageEvent");
-            var logChannel = e.Guild.GetChannel((ulong) messageEventId);
+            if (e.Message.Author.IsBot) return Task.CompletedTask;
 
-            var thumbnailUrl = string.Empty;
-            var fields = new List<EmbedField>();
-            EmbedFooter footer;
+            var guild = redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id))
+                             .GetAwaiter()
+                             .GetResult();
 
-            if (!string.IsNullOrWhiteSpace(e.Message.Content))
+            if (e.Message.Content.StartsWith(guild.Prefix)) return Task.CompletedTask;
+
+            logger.Information(!string.IsNullOrWhiteSpace(e.Message.Content)
+                                   ? $"The message ({e.Message.Id}) from '{e.Message.Author.GetUsertag()}' ({e.Message.Author.Id}) was deleted in '{e.Channel.Name}' ({e.Channel.Id}) on '{e.Guild.Name}' ({e.Guild.Id})."
+                                   : $"The message ({e.Message.Id}) was deleted in '{e.Channel.Name}' ({e.Channel.Id}) on '{e.Guild.Name}' ({e.Guild.Id}).");
+
+            var log = guild.Logs.FirstOrDefault(x => x.LogType == LogType.Message);
+
+            if (log != null)
             {
-                if (e.Message.Author.IsBot) return Task.CompletedTask;
+                var thumbnailUrl = string.Empty;
+                var fields = new List<EmbedField>();
+                EmbedFooter footer;
 
-                if (e.Message.Content.StartsWith(guildPrefix)) return Task.CompletedTask;
+                var logChannel = e.Guild.GetChannel(log.ChannelId);
 
-                thumbnailUrl = e.Message.Author.AvatarUrl;
-                fields.Add(new EmbedField {Inline = false, Name = "Content", Value = e.Message.Content});
-                footer = new EmbedFooter {Text = $"Author: {e.Message.Author.Id} | Message Id: {e.Message.Id}"};
-                logger.Information($"The message ({e.Message.Id}) from '{e.Message.Author.GetUsertag()}' ({e.Message.Author.Id}) was deleted in '{e.Channel.Name}' ({e.Channel.Id}) on '{e.Guild.Name}' ({e.Guild.Id}).");
+                if (!string.IsNullOrWhiteSpace(e.Message.Content))
+                {
+                    thumbnailUrl = e.Message.Author.AvatarUrl;
+                    fields.Add(new EmbedField
+                    {
+                        Inline = false, 
+                        Name = "Content", 
+                        Value = e.Message.Content
+                    });
+                    footer = new EmbedFooter {Text = $"Author: {e.Message.Author.Id} | Message Id: {e.Message.Id}"};
+                }
+                else
+                {
+                    fields.Add(new EmbedField
+                    {
+                        Inline = false, 
+                        Name = "Content", 
+                        Value = "The value is not available due to the message was send while the bot were offline or it's no longer in the cache."
+                    });
+                    footer = new EmbedFooter {Text = $"Message Id: {e.Message.Id}"};
+                }
+
+                var embed = new Embed
+                {
+                    Title = ":wastebasket: Message deleted",
+                    Description = new StringBuilder().AppendLine($"Message ({e.Message.Id}) deleted in {e.Channel.Mention}.")
+                                                     .ToString(),
+                    Color = DiscordColor.IndianRed,
+                    ThumbnailUrl = thumbnailUrl,
+                    Fields = fields,
+                    Footer = footer
+                };
+
+                logChannel.SendEmbedMessageAsync(embed);
             }
-            else
-            {
-                fields.Add(new EmbedField {Inline = false, Name = "Content", Value = "The value is not available due to the message was send while the bot were offline or it's no longer in the cache."});
-                footer = new EmbedFooter {Text = $"Message Id: {e.Message.Id}"};
-                logger.Information($"The message ({e.Message.Id}) was deleted in '{e.Channel.Name}' ({e.Channel.Id}) on '{e.Guild.Name}' ({e.Guild.Id}).");
-            }
-
-            var embed = new Embed
-            {
-                Title = ":wastebasket: Message deleted",
-                Description = new StringBuilder().AppendLine($"Message ({e.Message.Id}) deleted in {e.Channel.Mention}.")
-                                                 .ToString(),
-                Color = DiscordColor.IndianRed,
-                ThumbnailUrl = thumbnailUrl,
-                Fields = fields,
-                Footer = footer
-            };
-
-            logChannel.SendEmbedMessageAsync(embed);
 
             return Task.CompletedTask;
         }
 
         private Task MessagesBulkDeleted(MessageBulkDeleteEventArgs e)
         {
-            /* This would kill my bot */
+            if (!e.Channel.IsPrivate)
+            {
+                var log = redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id))
+                               .GetAwaiter()
+                               .GetResult()
+                               .Logs.FirstOrDefault(x => x.LogType == LogType.Message);
+
+                if (log != null)
+                {
+                    var logChannel = e.Guild.GetChannel(log.ChannelId);
+
+                    var embed = new Embed
+                    {
+                        Title = ":KaidaErase: Message bulk deleted",
+                        Description = new StringBuilder().AppendLine($"{e.Messages.Count} messages deleted in {e.Channel.Mention}.")
+                                                         .ToString(),
+                        Color = DiscordColor.IndianRed
+                    };
+
+                    logChannel.SendEmbedMessageAsync(embed, embedFooterStyle: EmbedFooterStyle.None);
+                }
+            }
+
             return Task.CompletedTask;
         }
 
@@ -441,26 +671,21 @@ namespace Kaida.Handler
         {
             if (e.User.IsBot) return Task.CompletedTask;
 
-            var client = e.Client;
-            var guild = e.Guild;
-            var channel = e.Channel;
-            var message = e.Message;
-            var reactionUser = e.User;
-            var emoji = e.Emoji;
             var emojiName = e.Emoji.Name == "??" ? "an unknown reaction" : $"the reaction '{e.Emoji.Name}' ({e.Emoji.Id})";
 
-            if (channel.IsPrivate)
+            if (e.Channel.IsPrivate)
             {
-                logger.Information($"{reactionUser.GetUsertag()} ({reactionUser.Id}) has added {emojiName} to the message '{e.Message.Id}' in the direct message.");
+                logger.Information($"{e.User.GetUsertag()} ({e.User.Id}) has added {emojiName} to the message '{e.Message.Id}' in the direct message.");
 
                 return Task.CompletedTask;
             }
 
-            logger.Information($"'{reactionUser.GetUsertag()}' ({reactionUser.Id}) has added {emojiName} to the message '{message.Id}' in the channel '{channel.Name}' ({channel.Id}) on the guild '{guild.Name}' ({guild.Id}).");
+            logger.Information($"'{e.User.GetUsertag()}' ({e.User.Id}) has added {emojiName} to the message '{e.Message.Id}' in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Guild.Name}' ({e.Guild.Id}).");
 
-            if (!_reactionListener.IsListener(message.Id, emoji, client)) return Task.CompletedTask;
-
-            _reactionListener.ManageRole(channel, message, reactionUser, emoji, client);
+            if (reactionService.IsListener(e.Guild.Id, e.Message.Id, e.Emoji))
+            {
+                reactionService.ManageRole(e.Message, e.Channel, (DiscordMember) e.User, e.Emoji);
+            }
 
             return Task.CompletedTask;
         }
@@ -469,68 +694,120 @@ namespace Kaida.Handler
         {
             if (e.User.IsBot) return Task.CompletedTask;
 
-            var guild = e.Guild;
-            var channel = e.Channel;
-            var message = e.Message;
-            var reactionUser = e.User;
             var emojiName = e.Emoji.Name == "??" ? "an unknown reaction" : $"the reaction '{e.Emoji.Name}' ({e.Emoji.Id})";
 
-            if (channel.IsPrivate)
+            if (e.Channel.IsPrivate)
             {
-                logger.Information($"{reactionUser.GetUsertag()} ({reactionUser.Id}) has removed {emojiName} to the message '{e.Message.Id}' in the direct message.");
+                logger.Information($"{e.User.GetUsertag()} ({e.User.Id}) has removed {emojiName} to the message '{e.Message.Id}' in the direct message.");
 
                 return Task.CompletedTask;
             }
 
-            logger.Information($"'{reactionUser.GetUsertag()}' ({reactionUser.Id}) has removed {emojiName} to the message '{message.Id}' in the channel '{channel.Name}' ({channel.Id}) on the guild '{guild.Name}' ({guild.Id}).");
+            logger.Information($"'{e.User.GetUsertag()}' ({e.User.Id}) has removed {emojiName} to the message '{e.Message.Id}' in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Guild.Name}' ({e.Guild.Id}).");
 
             return Task.CompletedTask;
         }
 
         private Task MessageReactionRemovedEmoji(MessageReactionRemoveEmojiEventArgs e)
         {
-            /* This would kill my bot */
+            logger.Information($"All reactions with the emoji '{e.Emoji.Name}' ({e.Emoji.Id}) of the message ({e.Message.Id}) has been removed in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Guild.Name}' ({e.Guild.Id}).");
+
             return Task.CompletedTask;
         }
 
         private Task MessageReactionsCleared(MessageReactionsClearEventArgs e)
         {
-            /* This would kill my bot */
+            logger.Information($"All reactions of the message ({e.Message.Id}) has been cleared in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Guild.Name}' ({e.Guild.Id}).");
+
             return Task.CompletedTask;
         }
 
         private Task VoiceServerUpdated(VoiceServerUpdateEventArgs e)
         {
-            /* This would kill my bot */
+            logger.Information($"Voice server has been updated to '{e.Endpoint}' on the guild '{e.Guild.Name}' ({e.Guild.Id}).");
+
             return Task.CompletedTask;
         }
 
         private Task VoiceStateUpdated(VoiceStateUpdateEventArgs e)
         {
-            /* This would kill my bot */
+            // Todo: Log joined/left voice channel
+
+            var action = string.Empty;
+
+            if (e.Before.IsSelfDeafened != e.After.IsSelfDeafened)
+            {
+                action = $"'self deafened' from {e.Before.IsSelfDeafened.ToString()} to {e.After.IsSelfDeafened.ToString()}";
+            }
+            else if (e.Before.IsSelfMuted != e.After.IsSelfMuted)
+            {
+                action = $"'self muted' from {e.Before.IsSelfMuted.ToString()} to {e.After.IsSelfMuted.ToString()}";
+            }
+            else if (e.Before.IsServerDeafened != e.After.IsServerDeafened)
+            {
+                action = $"'server deafened' from {e.Before.IsServerDeafened.ToString()} to {e.After.IsServerDeafened.ToString()}";
+            }
+            else if (e.Before.IsServerMuted != e.After.IsServerMuted)
+            {
+                action = $"'server muted' from {e.Before.IsServerMuted.ToString()} to {e.After.IsServerMuted.ToString()}";
+            }
+            else if (e.Before.IsSuppressed != e.After.IsSuppressed)
+            {
+                action = $"'suppressed' from {e.Before.IsSuppressed.ToString()} to {e.After.IsSuppressed.ToString()}";
+            }
+            else
+            {
+                action = "'something' from a state to a new state";
+            }
+
+            logger.Information($"Voice state of the user '{e.User.GetUsertag()}' ({e.User.Id}) has been updated {action} in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Guild.Name}' ({e.Guild.Id}).");
+
             return Task.CompletedTask;
         }
 
         private Task SocketOpened()
         {
-            /* This would kill my bot */
+            logger.Information("Socket has been opened.");
+
             return Task.CompletedTask;
         }
 
         private Task SocketClosed(SocketCloseEventArgs e)
         {
-            /* This would kill my bot */
+            logger.Warning($"Socket has been closed. [{e.CloseCode}] ({e.CloseMessage})");
+
             return Task.CompletedTask;
         }
 
         private Task SocketErrored(SocketErrorEventArgs e)
         {
-            /* This would kill my bot */
+            logger.Error($"Socket has been errored! ({e.Exception.Message})");
+
             return Task.CompletedTask;
         }
 
         private Task ClientErrored(ClientErrorEventArgs e)
         {
+            switch (e.Exception)
+            {
+                case BadRequestException badRequestException:
+                    logger.Error($"[{e.EventName}] Bad Request: {badRequestException.Message}");
+
+                    break;
+                case RateLimitException rateLimitException:
+                    logger.Error($"[{e.EventName}] Rate Limit: {rateLimitException.Message}");
+
+                    break;
+                case UnauthorizedException unauthorizedException:
+                    logger.Error($"[{e.EventName}] Unauthorized: {unauthorizedException.Message}");
+
+                    break;
+                case NotFoundException notFoundException:
+                    logger.Error($"[{e.EventName}] Not Found: {notFoundException.WebResponse.Response}");
+
+                    break;
+            }
+
             logger.Error(e.Exception, $"Client has occurred an error: {e.EventName}");
 
             return Task.CompletedTask;
@@ -538,7 +815,8 @@ namespace Kaida.Handler
 
         private Task UnknownEvent(UnknownEventArgs e)
         {
-            /* This would kill my bot */
+            logger.Warning($"Unknown Event: {e.EventName}");
+
             return Task.CompletedTask;
         }
     }
