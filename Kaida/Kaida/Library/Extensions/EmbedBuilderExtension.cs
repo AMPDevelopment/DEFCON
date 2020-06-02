@@ -77,9 +77,10 @@ namespace Kaida.Library.Extensions
             var url = filteredParameters[2] as string;
             var thumbnail = filteredParameters[2] as string;
             var image = filteredParameters[4] as string;
+            var footer = filteredParameters[5] as string;
             var fields = new List<EmbedField>();
 
-            if (filteredParameters[5] is List<EmbedField> filteredFields)
+            if (filteredParameters[6] is List<EmbedField> filteredFields)
             {
                 fields = filteredFields;
             }
@@ -94,7 +95,12 @@ namespace Kaida.Library.Extensions
                 Fields = fields
             };
 
-            var embedBuilder = EmbedBuilder(embed, message.Author, EmbedFooterStyle.None);
+            embed.Footer = new EmbedFooter()
+            {
+                Text = footer
+            };
+
+            var embedBuilder = EmbedBuilder(embed, message.Author);
 
             await message.ModifyAsync("", embedBuilder);
         }
@@ -159,6 +165,7 @@ namespace Kaida.Library.Extensions
             var url = string.Empty;
             var fieldName = string.Empty;
             var fieldValue = string.Empty;
+            var footer = string.Empty;
             var fields = new List<EmbedField>();
 
             foreach (var contentString in content.Split("|"))
@@ -179,6 +186,8 @@ namespace Kaida.Library.Extensions
                 fieldValue = filteredFieldValue == string.Empty ? fieldValue : filteredFieldValue;
                 var filteredFieldInline = FilterArgs(contentString, "inline=");
                 var fieldInline = filteredFieldInline == "true" ? true : false;
+                var filteredFooter = FilterArgs(contentString, "footer=");
+                footer = filteredFooter == string.Empty ? footer : filteredFooter;
 
                 if (fieldName != string.Empty && fieldValue != string.Empty)
                 {
@@ -196,6 +205,7 @@ namespace Kaida.Library.Extensions
                 url,
                 thumbnail,
                 image,
+                footer,
                 fields
             };
         }

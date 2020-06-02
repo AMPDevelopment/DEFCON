@@ -26,6 +26,7 @@ namespace Kaida.Modules.Miscellaneous
         [Priority(1)]
         public async Task Say(CommandContext context, [RemainingText] string content)
         {
+            await context.Message.DeleteAsync();
             await context.RespondAsync(content);
         }
 
@@ -35,6 +36,7 @@ namespace Kaida.Modules.Miscellaneous
         {
             if (await context.Channel.GetMessageAsync(messageId) is DiscordMessage message)
             {
+                await context.Message.DeleteAsync();
                 await message.ModifyAsync(content);
             }
         }
@@ -44,6 +46,7 @@ namespace Kaida.Modules.Miscellaneous
         [RequireBotPermissions(Permissions.EmbedLinks)]
         public async Task Embed(CommandContext context, [RemainingText] string content)
         {
+            await context.Message.DeleteAsync();
             await context.SendFilteredEmbedMessageAsync(content);
         }
 
@@ -52,6 +55,7 @@ namespace Kaida.Modules.Miscellaneous
         [RequireBotPermissions(Permissions.EmbedLinks)]
         public async Task Embed(CommandContext context, ulong messageId, [RemainingText] string content)
         {
+            await context.Message.DeleteAsync();
             var message = await context.Channel.GetMessageAsync(messageId);
             await message.SendFilteredEmbedMessageAsync(content);
         }

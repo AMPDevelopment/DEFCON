@@ -1,9 +1,4 @@
-﻿using DSharpPlus.Entities;
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Kaida.Library.Extensions
+﻿namespace Kaida.Library.Extensions
 {
     public static class EmojiLibrary
     {
