@@ -178,7 +178,7 @@ namespace Kaida.Handler
 
                 var embed = new Embed
                 {
-                    Title = ":KaidaNew: Channel created",
+                    Title = $"{DiscordEmoji.FromGuildEmote(e.Client, EmojiLibrary.New)} Channel created",
                     Description = new StringBuilder().AppendLine($"Name: `{e.Channel.Name}` {e.Channel.Mention}")
                                                      .AppendLine($"Identity: `{e.Channel.Id}`")
                                                      .AppendLine($"Type: {e.Channel.Type.ToString()}")
@@ -216,7 +216,7 @@ namespace Kaida.Handler
 
                     var embed = new Embed
                     {
-                        Title = ":KaidaUpdate: Channel updated", 
+                        Title = $"{DiscordEmoji.FromGuildEmote(e.Client, EmojiLibrary.Update)} Channel updated", 
                         Description = description.ToString(), 
                         Color = DiscordColor.SpringGreen
                     };
@@ -250,7 +250,7 @@ namespace Kaida.Handler
 
                     var embed = new Embed
                     {
-                        Title = ":KaidaErase: Channel updated", 
+                        Title = $"{DiscordEmoji.FromGuildEmote(e.Client, EmojiLibrary.Erase)} Channel updated", 
                         Description = description.ToString(), 
                         Color = DiscordColor.SpringGreen
                     };
@@ -277,7 +277,7 @@ namespace Kaida.Handler
 
                 var embed = new Embed
                 {
-                    Title = ":KaidaNew: Role created",
+                    Title = $"{DiscordEmoji.FromGuildEmote(e.Client, EmojiLibrary.New)} Role created",
                     Description = new StringBuilder().AppendLine($"Name: `{e.Role.Name}`")
                                                      .AppendLine($"Identity: `{e.Role.Id}`")
                                                      .ToString(),
@@ -311,7 +311,7 @@ namespace Kaida.Handler
 
                 var embed = new Embed
                 {
-                    Title = ":KaidaUpdate: Role updated", 
+                    Title = $"{DiscordEmoji.FromGuildEmote(e.Client, EmojiLibrary.Update)} Role updated", 
                     Description = description.ToString(), 
                     Color = DiscordColor.SpringGreen
                 };
@@ -337,7 +337,7 @@ namespace Kaida.Handler
 
                 var embed = new Embed
                 {
-                    Title = ":KaidaErase: Role deleted",
+                    Title = $"{DiscordEmoji.FromGuildEmote(e.Client, EmojiLibrary.Erase)} Role deleted",
                     Description = new StringBuilder().AppendLine($"Name: `{e.Role.Name}`")
                                                      .AppendLine($"Identity: `{e.Role.Id}`")
                                                      .ToString(),
@@ -367,7 +367,7 @@ namespace Kaida.Handler
 
                 var embed = new Embed
                 {
-                    Title = ":KaidaJoined: Member joined",
+                    Title = $"{DiscordEmoji.FromGuildEmote(e.Client, EmojiLibrary.Joined)} Member joined",
                     Description = new StringBuilder().AppendLine($"Username: `{e.Member.GetUsertag()}`")
                                                      .AppendLine($"User identity: `{e.Member.Id}`")
                                                      .AppendLine($"Registered: {e.Member.CreatedAtLongDateTimeString().Result}")
@@ -405,7 +405,7 @@ namespace Kaida.Handler
 
                 var embed = new Embed
                 {
-                    Title = ":KaidaLeft: Member left",
+                    Title = $"{DiscordEmoji.FromGuildEmote(e.Client, EmojiLibrary.Left)} Member left",
                     Description = new StringBuilder().AppendLine($"Username: `{e.Member.GetUsertag()}`")
                                                      .AppendLine($"User identity: `{e.Member.Id}`")
                                                      .ToString(),
@@ -442,7 +442,7 @@ namespace Kaida.Handler
 
                 var embed = new Embed
                 {
-                    Title = ":KaidaEdit: Nickname changed",
+                    Title = $"{DiscordEmoji.FromGuildEmote(e.Client, EmojiLibrary.Edit)} Nickname changed",
                     Description = new StringBuilder().AppendLine($"Mention: {e.Member.Mention}")
                                                      .AppendLine($"Username: {Formatter.InlineCode(e.Member.GetUsertag())}")
                                                      .AppendLine($"Identity: {Formatter.InlineCode($"{e.Member.Id}")}")
@@ -549,7 +549,7 @@ namespace Kaida.Handler
 
                 var embed = new Embed
                 {
-                    Title = ":KaidaEdit: Message updated",
+                    Title = $"{DiscordEmoji.FromGuildEmote(e.Client, EmojiLibrary.Edit)} Message updated",
                     Description = new StringBuilder().AppendLine($"Message ({e.Message.Id}) updated in {e.Channel.Mention}.")
                                                      .AppendLine($"[Jump to message]({e.Message.JumpLink})")
                                                      .ToString(),
@@ -624,7 +624,7 @@ namespace Kaida.Handler
 
                 var embed = new Embed
                 {
-                    Title = ":wastebasket: Message deleted",
+                    Title = $"{DiscordEmoji.FromGuildEmote(e.Client, EmojiLibrary.Erase)} Message deleted",
                     Description = new StringBuilder().AppendLine($"Message ({e.Message.Id}) deleted in {e.Channel.Mention}.")
                                                      .ToString(),
                     Color = DiscordColor.IndianRed,
@@ -654,7 +654,7 @@ namespace Kaida.Handler
 
                     var embed = new Embed
                     {
-                        Title = ":KaidaErase: Message bulk deleted",
+                        Title = $"{DiscordEmoji.FromGuildEmote(e.Client, EmojiLibrary.Erase)} Message bulk deleted",
                         Description = new StringBuilder().AppendLine($"{e.Messages.Count} messages deleted in {e.Channel.Mention}.")
                                                          .ToString(),
                         Color = DiscordColor.IndianRed
@@ -803,13 +803,17 @@ namespace Kaida.Handler
 
                     break;
                 case NotFoundException notFoundException:
-                    logger.Error($"[{e.EventName}] Not Found: {notFoundException.WebResponse.Response}");
+                    logger.Error($"[{e.EventName}] Not Found: {notFoundException.WebResponse}");
+
+                    break;
+                case AggregateException aggregateException:
+                    logger.Error($"[{e.EventName}] Aggregate: {aggregateException.Message}");
 
                     break;
             }
-
+            
             logger.Error(e.Exception, $"Client has occurred an error: {e.EventName}");
-
+            
             return Task.CompletedTask;
         }
 

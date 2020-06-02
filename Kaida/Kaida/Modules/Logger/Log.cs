@@ -7,6 +7,7 @@ using DSharpPlus.Entities;
 using Kaida.Common.Enums;
 using Kaida.Data.Guilds;
 using Kaida.Library.Redis;
+using MoreLinq;
 using Serilog;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 
@@ -98,7 +99,7 @@ namespace Kaida.Modules.Logger
             var channel = context.Channel;
             var logLabel = await SetLogTypeGetLogLabel(logType);
             var guildData = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(guild.Id));
-            var log = guildData.Logs.First(x => x.LogType == logType);
+            var log = guildData.Logs.FirstOrDefault(x => x.LogType == logType);
 
             DiscordChannel loggedChannel = null;
             DiscordMessage respond = null;
@@ -121,42 +122,41 @@ namespace Kaida.Modules.Logger
             }
             else
             {
-                if (log == null)
+                if (status.ToLower().Equals("enable"))
                 {
-                    guildData.Logs.Add(new Data.Guilds.Log()
+                    if (loggedChannel != null)
                     {
-                        ChannelId = channel.Id,
-                        LogType = logType
-                    });
-
-                    redis.ReplaceAsync<Guild>(RedisKeyNaming.Guild(guild.Id), guildData);
-                    respond = await context.RespondAsync($"The {logLabel} log has been set to this channel.");
-                }
-                else
-                {
-                    if (loggedChannel.Id == channel.Id)
-                    {
-                        respond = await context.RespondAsync($"The {logLabel} log is already set to this channel.");
+                        if (loggedChannel.Id == channel.Id)
+                        {
+                            respond = await context.RespondAsync($"The {logLabel} log is already set to this channel.");
+                        }
+                        else
+                        {
+                            respond = await context.RespondAsync($"The {logLabel} log is already set to {loggedChannel.Mention}.");
+                        }
                     }
                     else
                     {
-                        respond = await context.RespondAsync($"The {logLabel} log is already set to {loggedChannel.Mention}.");
+                        guildData.Logs.Add(new Data.Guilds.Log() {ChannelId = channel.Id, LogType = logType});
+
+                        await redis.AddAsync<Data.Guilds.Guild>(RedisKeyNaming.Guild(guild.Id), guildData);
                     }
+                    
+                    respond = await context.RespondAsync($"The {logLabel} log has been set to this channel.");
                 }
-            }
-
-            if (status == "disable")
-            {
-                if (log != null)
+                else if (status.ToLower().Equals("disable"))
                 {
-                    guildData.Logs.Remove(log);
+                    if (log != null)
+                    {
+                        guildData.Logs.Remove(log);
 
-                    await redis.ReplaceAsync<Guild>(RedisKeyNaming.Guild(guild.Id), guildData);
-                    respond = await context.RespondAsync($"The {logLabel} log has been disabled.");
-                }
-                else
-                {
-                    respond = await context.RespondAsync($"You can't disable something which is not even activated.");
+                        await redis.ReplaceAsync<Guild>(RedisKeyNaming.Guild(guild.Id), guildData);
+                        respond = await context.RespondAsync($"The {logLabel} log has been disabled.");
+                    }
+                    else
+                    {
+                        respond = await context.RespondAsync($"You can't disable something which is not even activated.");
+                    }
                 }
             }
 

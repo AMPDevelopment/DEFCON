@@ -98,10 +98,11 @@ namespace Kaida
 
                 if (config == null)
                 {
-                    await redis.AddAsync<Config>(RedisKeyNaming.Config, new Config()
+                    config = new Config()
                     {
                         Token = token
-                    });
+                    };
+                    await redis.AddAsync<Config>(RedisKeyNaming.Config, config);
                 }
                 else if (string.IsNullOrWhiteSpace(config.Token))
                 {
@@ -146,8 +147,8 @@ namespace Kaida
                 PrefixResolver = PrefixResolverAsync,
                 EnableMentionPrefix = true,
                 EnableDms = true,
-                DmHelp = true,
-                EnableDefaultHelp = true,
+                DmHelp = false,
+                EnableDefaultHelp = false,
                 UseDefaultCommandHandler = true
             };
 
