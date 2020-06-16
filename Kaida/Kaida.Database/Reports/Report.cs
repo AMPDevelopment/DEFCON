@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace Kaida.Data.Reports
 {
@@ -10,5 +11,6 @@ namespace Kaida.Data.Reports
         public ulong GuildId { get; set; }
         public string Content { get; set; }
         public DateTimeOffset Date { get; set; }
+        public List<byte[]> Attachements { get; set; }
     }
 }

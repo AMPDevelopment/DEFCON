@@ -16,6 +16,7 @@ using Kaida.Library.Extensions;
 using Kaida.Library.Formatters;
 using Kaida.Library.Logger;
 using Kaida.Library.Redis;
+using Kaida.Library.Services.Infractions;
 using Kaida.Library.Services.Reactions;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
@@ -33,6 +34,7 @@ namespace Kaida
         private CommandsNextExtension commandsNext;
         private ILogger logger;
         private IReactionService reactionService;
+        private IInfractionService infractionService;
         private IRedisDatabase redis;
         private IServiceProvider serviceProvider;
         private IServiceCollection services;
@@ -84,7 +86,9 @@ namespace Kaida
             redis = serviceProvider.GetService<IRedisDatabase>();
 
             reactionService = new ReactionService(logger, redis);
-            services.AddSingleton(reactionService);
+            infractionService = new InfractionService(logger, redis);
+            services.AddSingleton(reactionService)
+                    .AddSingleton(infractionService);
             serviceProvider = services.BuildServiceProvider();
             logger.Information("Successfully setup the services.");
 
@@ -148,7 +152,7 @@ namespace Kaida
                 EnableMentionPrefix = true,
                 EnableDms = true,
                 DmHelp = false,
-                EnableDefaultHelp = false,
+                EnableDefaultHelp = true,
                 UseDefaultCommandHandler = true
             };
 

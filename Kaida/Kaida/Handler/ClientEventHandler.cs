@@ -485,7 +485,9 @@ namespace Kaida.Handler
 
         private Task DmChannelDeleted(DmChannelDeleteEventArgs e)
         {
-            /* This would kill my bot */
+            var user = e.Channel.Recipients.First(x => !x.IsBot);
+            logger.Information($"Direct message with '{user.GetUsertag()}' ({user.Id}) has been deleted.");
+
             return Task.CompletedTask;
         }
 
@@ -682,9 +684,26 @@ namespace Kaida.Handler
 
             logger.Information($"'{e.User.GetUsertag()}' ({e.User.Id}) has added {emojiName} to the message '{e.Message.Id}' in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Guild.Name}' ({e.Guild.Id}).");
 
+            var member = e.Channel.Guild.GetMemberAsync(e.User.Id).Result;
+
             if (reactionService.IsListener(e.Guild.Id, e.Message.Id, e.Emoji))
             {
-                reactionService.ManageRole(e.Message, e.Channel, (DiscordMember) e.User, e.Emoji);
+                reactionService.ManageRole(e.Message, e.Channel, member, e.Emoji);
+            }
+
+            var guild = redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id))
+                             .GetAwaiter()
+                             .GetResult();
+            if (guild.RulesAgreement.MessageId == e.Message.Id && e.Emoji.Id == EmojiLibrary.Accepted)
+            {
+                var role = e.Guild.GetRole(guild.RulesAgreement.RoleId);
+
+                if (role == null)
+                {
+                    // Contact member and server owner!
+                }
+
+                member.GrantRoleAsync(role);
             }
 
             return Task.CompletedTask;

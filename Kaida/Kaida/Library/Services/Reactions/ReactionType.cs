@@ -2,7 +2,7 @@
 {
     public enum ReactionType
     {
-        Menu,
-        Single
+        Category,
+        Message
     }
 }

@@ -8,13 +8,12 @@ namespace Kaida.Data.Guilds
         public ulong Id { get; set; }
         public string Prefix { get; set; }
         public IList<ulong> ModeratorRoleIds { get; set; }
-        public bool ModeratorAllowedWarn { get; set; }
-        public bool ModeratorAllowedMute { get; set; }
-        public bool ModeratorAllowedKick { get; set; }
-        public bool ModeratorAllowedBan { get; set; }
+        public bool AllowWarnModerators { get; set; }
+        public bool AllowMuteModerators { get; set; }
+        public RulesAgreement RulesAgreement { get; set; }
         public IList<Log> Logs { get; set; }
         public IList<Setting> Settings { get; set; }
-        public IList<ReactionMenu> ReactionMenus { get; set; }
-        public IList<ReactionSingle> ReactionSingles { get; set; }
+        public IList<ReactionMessage> ReactionMessages { get; set; }
+        public IList<ReactionCategory> ReactionCategories { get; set; }
     }
 }

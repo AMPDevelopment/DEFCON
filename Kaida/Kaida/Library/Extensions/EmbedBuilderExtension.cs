@@ -75,12 +75,12 @@ namespace Kaida.Library.Extensions
             var title = filteredParameters[0] as string;
             var description = filteredParameters[1] as string;
             var url = filteredParameters[2] as string;
-            var thumbnail = filteredParameters[2] as string;
+            var thumbnail = filteredParameters[3] as string;
             var image = filteredParameters[4] as string;
-            var footer = filteredParameters[5] as string;
+            var footer = filteredParameters[6] as string;
             var fields = new List<EmbedField>();
 
-            if (filteredParameters[6] is List<EmbedField> filteredFields)
+            if (filteredParameters[5] is List<EmbedField> filteredFields)
             {
                 fields = filteredFields;
             }
@@ -92,13 +92,10 @@ namespace Kaida.Library.Extensions
                 Url = url,
                 ThumbnailUrl = thumbnail,
                 ImageUrl = image,
-                Fields = fields
+                Fields = fields,
+                Footer = new EmbedFooter() {Text = footer}
             };
 
-            embed.Footer = new EmbedFooter()
-            {
-                Text = footer
-            };
 
             var embedBuilder = EmbedBuilder(embed, message.Author);
 
@@ -121,7 +118,10 @@ namespace Kaida.Library.Extensions
                 Url = !string.IsNullOrWhiteSpace(embed.Url) ? embed.Url : null,
                 Color = embed.Color.Equals(DiscordColor.None) ? DiscordColor.Turquoise : embed.Color,
                 ImageUrl = !string.IsNullOrWhiteSpace(embed.ImageUrl) ? embed.ImageUrl : null,
-                ThumbnailUrl = !string.IsNullOrWhiteSpace(embed.ThumbnailUrl) ? embed.ThumbnailUrl : null,
+                Thumbnail = new DiscordEmbedBuilder.EmbedThumbnail()
+                {
+                    Url = !string.IsNullOrWhiteSpace(embed.ThumbnailUrl) ? embed.ThumbnailUrl : null
+                },
                 Timestamp = DateTimeOffset.UtcNow
             };
 
@@ -205,8 +205,8 @@ namespace Kaida.Library.Extensions
                 url,
                 thumbnail,
                 image,
-                footer,
-                fields
+                fields,
+                footer
             };
         }
 
@@ -229,7 +229,6 @@ namespace Kaida.Library.Extensions
     public enum EmbedFooterStyle
     {
         None,
-        Default,
-        Custom
+        Default
     }
 }

@@ -11,10 +11,8 @@ using Kaida.Entities.Discord.Embeds;
 using Kaida.Library.Attributes;
 using Kaida.Library.Extensions;
 using Kaida.Library.Redis;
-using MoreLinq;
 using Serilog;
 using StackExchange.Redis.Extensions.Core.Abstractions;
-using System.Security.Cryptography.X509Certificates;
 
 namespace Kaida.Modules.Information
 {
@@ -53,6 +51,7 @@ namespace Kaida.Modules.Information
             await redis.InitUser(userId);
             var member = await context.Guild.GetMemberAsync(userId);
             var nickname = string.IsNullOrWhiteSpace(member.Nickname) ? string.Empty : $"({member.Nickname})";
+            var owners = context.Client.CurrentApplication.Owners;
 
             var author = new EmbedAuthor { Name = $"{member.GetUsertag()} {nickname}", IconUrl = member.AvatarUrl };
 
@@ -60,25 +59,37 @@ namespace Kaida.Modules.Information
 
             if (member.IsOwner)
             {
-                description.AppendLine(Formatter.InlineCode(":KaidaVerified: Guild Owner"));
+                description.AppendLine(owners.Any(x => x.Id == member.Id) 
+                                           ? $"{DiscordEmoji.FromGuildEmote(context.Client, EmojiLibrary.Verified)} {Formatter.InlineCode("Guild and Bot Owner")}" 
+                                           : $"{DiscordEmoji.FromGuildEmote(context.Client, EmojiLibrary.Verified)} {Formatter.InlineCode("Guild Owner")}");
+            }
+            else if (owners.Any(x => x.Id == member.Id))
+            {
+                description.AppendLine($"{DiscordEmoji.FromGuildEmote(context.Client, EmojiLibrary.Verified)} {Formatter.InlineCode("Bot Owner")}");
             }
             else if (member.IsBot)
             {
                 description.AppendLine(Formatter.InlineCode("`[BOT]`"));
             }
 
+            var userDays = await member.GetDaysExisting();
+            var userSinceDays =  userDays == 1 ? $"yesterday" : userDays == 0 ? "today" : $"{Formatter.Bold($"{userDays}")} days";
+
+            var memberDays = await member.GetMemberDays();
+            var memberSinceDays = memberDays == 1 ? $"yesterday" : memberDays == 0 ? "today" : $"{Formatter.Bold($"{memberDays}")} days ago";
+
             description.AppendLine($"Identity: `{member.Id}`")
-                       .AppendLine($"Registered: {await member.CreatedAtLongDateTimeString()}")
+                       .AppendLine($"Registered: {await member.CreatedAtLongDateTimeString()} ({userSinceDays})")
+                       .AppendLine($"Joined: {await member.JoinedAtLongDateTimeString()} ({memberSinceDays})")
                        .AppendLine($"Join Position: #{await JoinPosition(member, context.Guild)}");
+                       
 
             var roles = string.Empty;
 
             if (member.Roles.Any())
             {
-                var rolesSorted = member.Roles.ToList()
-                                        .OrderByDescending(x => x.Position);
-
-                roles = rolesSorted.Aggregate(roles, (current, role) => current + $"<@&{role.Id}> ");
+                var rolesOrdered = member.Roles.ToList().OrderByDescending(x => x.Position);
+                roles = rolesOrdered.Aggregate(roles, (current, role) => current + $"<@&{role.Id}> ");
             }
             else
             {
@@ -90,15 +101,14 @@ namespace Kaida.Modules.Information
             var userGuildInfractions = userInfractions.Where(x => x.GuildId == context.Guild.Id)
                                                       .ToList();
 
-            var infractions = new StringBuilder().AppendLine($"Auto: {userGuildInfractions.Count(x => x.InfractionType == InfractionType.AutoMod)}")
-                                                 .AppendLine($"Warnings: {userGuildInfractions.Count(x => x.InfractionType == InfractionType.Warning)}")
-                                                 .AppendLine($"Mutes: {userGuildInfractions.Count(x => x.InfractionType == InfractionType.Mute)}").ToString();
+            var infractions = new StringBuilder().AppendLine($"Warnings: {userGuildInfractions.Count(x => x.InfractionType == InfractionType.Warning)}")
+                                                 .AppendLine($"Mutes: {userGuildInfractions.Count(x => x.InfractionType == InfractionType.Mute)}")
+                                                 .AppendLine($"Kicks: {userGuildInfractions.Count(x => x.InfractionType == InfractionType.Kick)}").ToString();
 
             var permissions = await UserKeyPermissions(member);
 
             var fields = new List<EmbedField>
             {
-                new EmbedField {Inline = true, Name = "Joined Server at", Value = await member.JoinedAtLongDateTimeString()},
                 new EmbedField {Inline = true, Name = "Boosting since", Value = await member.PremiumSinceLongDateTimeString()},
                 new EmbedField {Inline = true, Name = "Server Infractions", Value = infractions},
                 new EmbedField {Inline = false, Name = "Roles", Value = roles}

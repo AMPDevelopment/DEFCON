@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using DSharpPlus;
 using DSharpPlus.Entities;
 
 namespace Kaida.Library.Extensions
@@ -59,6 +60,26 @@ namespace Kaida.Library.Extensions
         {
             return channel.GetMessagesAsync(1)
                           .Result.First();
+        }
+
+        public static async Task<int> Categories(this List<DiscordChannel> channels)
+        {
+            return channels.Count(x => x.IsCategory);
+        }
+
+        public static async Task<int> NSFW(this List<DiscordChannel> channels)
+        {
+            return channels.Count(x => x.IsNSFW);
+        }
+
+        public static async Task<int> Texts(this List<DiscordChannel> channels)
+        {
+            return channels.Count(x => x.Type == ChannelType.Text);
+        }
+
+        public static async Task<int> Voices(this List<DiscordChannel> channels)
+        {
+            return channels.Count(x => x.Type == ChannelType.Voice);
         }
     }
 }

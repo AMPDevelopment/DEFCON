@@ -28,29 +28,34 @@ namespace Kaida.Library.Services.Reactions
         {
             var guild = redis.GetAsync<Guild>(RedisKeyNaming.Guild(guildId)).Result;
 
-            return guild.ReactionSingles != null && guild.ReactionSingles.Any(x => x.Id == messageId && x.ReactionItems.Any(x => x.Emoji == emoji.ToString())) ||
-                   guild.ReactionMenus != null && guild.ReactionMenus.Any(x => x.Id == messageId && x.ReactionItems.Any(x => x.Emoji == emoji.ToString()));
+            return guild.ReactionCategories != null && guild.ReactionCategories.Any(x => x.Id == messageId && x.ReactionRoles.Any(x => x.Emoji == emoji.ToString())) ||
+                   guild.ReactionMessages != null && guild.ReactionMessages.Any(x => x.Id == messageId && x.ReactionRoles.Any(x => x.Emoji == emoji.ToString()));
         }
 
         public async void ManageRole(DiscordMessage message, DiscordChannel channel, DiscordMember member, DiscordEmoji emoji)
         {
             var guild = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(channel.GuildId));
 
-            var reactionSingleItem = guild.ReactionSingles?.Single(x => x.Id == message.Id)?.ReactionItems.Single(x => x.Emoji == emoji.ToString());
-            var reactionMenuItem = guild.ReactionMenus?.Single(x => x.Id == message.Id)?.ReactionItems.Single(x => x.Emoji == emoji.ToString());
+            var reactionCategory = guild.ReactionCategories?.FirstOrDefault(x => x.Id == message.Id);
+            var reactionCategoryItem = reactionCategory?.ReactionRoles.Single(x => x.Emoji == emoji.ToString());
+            var reactionMessageItem = guild.ReactionMessages?.Single(x => x.Id == message.Id)?.ReactionRoles.Single(x => x.Emoji == emoji.ToString());
 
             var roleId = ulong.MinValue;
-            if (reactionSingleItem != null)
+            var categoryRoleId = ulong.MinValue;
+
+            if (reactionCategoryItem != null)
             {
-                roleId = reactionSingleItem.RoleId;
+                categoryRoleId = reactionCategory.RoleId;
+                roleId = reactionCategoryItem.RoleId;
             }
 
-            if (reactionMenuItem != null)
+            if (reactionMessageItem != null)
             {
-                roleId = reactionMenuItem.RoleId;
+                roleId = reactionMessageItem.RoleId;
             }
 
             var role = channel.Guild.GetRole(roleId);
+            var categoryRole = channel.Guild.GetRole(categoryRoleId);
 
             if (role != null)
             {
@@ -71,29 +76,54 @@ namespace Kaida.Library.Services.Reactions
             }
         }
 
-        public Task CreateReactionMenu(ulong guildId, ulong messageId, string name)
+        public async Task CreateReactionCategory(ulong guildId, ulong messageId, string name, ulong roleId)
         {
             throw new NotImplementedException();
         }
 
-        public async Task AddRoleToListener(ulong guildId, ulong messageId, DiscordEmoji emoji, DiscordRole role, ReactionType type)
+        public async Task AddReactionListener(ulong guildId, ulong messageId, DiscordEmoji emoji, DiscordRole role, ReactionType type)
         {
             var guild = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(guildId));
             
-            if (type == ReactionType.Single)
+            if (type == ReactionType.Message)
             {
-                guild.ReactionSingles ??= new List<ReactionSingle>();
+                guild.ReactionMessages ??= new List<ReactionMessage>();
 
-                if (guild.ReactionSingles.Any(x => x.Id != messageId))
+                if (guild.ReactionMessages.Any(x => x.Id != messageId))
                 {
-                    guild.ReactionSingles.Add(new ReactionSingle()
+                    guild.ReactionMessages.Add(new ReactionMessage()
                     {
                         Id = messageId,
-                        ReactionItems = new List<ReactionItem>()
+                        ReactionRoles = new List<ReactionRole>()
                     });
                 }
 
-                guild.ReactionSingles.Single(x => x.Id == messageId).ReactionItems.Add(new ReactionItem()
+                guild.ReactionMessages.Single(x => x.Id == messageId).ReactionRoles.Add(new ReactionRole()
+                {
+                    Emoji = emoji.ToString(),
+                    RoleId = role.Id
+                });
+
+                await redis.ReplaceAsync<Guild>(RedisKeyNaming.Guild(guildId), guild);
+
+                await Task.CompletedTask;
+            }
+
+            if (type == ReactionType.Category)
+            {
+                guild.ReactionCategories ??= new List<ReactionCategory>();
+
+                if (guild.ReactionCategories.Any(x => x.Id != messageId))
+                {
+                    guild.ReactionCategories.Add(new ReactionCategory()
+                    {
+                        Id = messageId,
+                        RoleId = ulong.MinValue,
+                        ReactionRoles = new List<ReactionRole>()
+                    });
+                }
+
+                guild.ReactionMessages.Single(x => x.Id == messageId).ReactionRoles.Add(new ReactionRole()
                 {
                     Emoji = emoji.ToString(),
                     RoleId = role.Id

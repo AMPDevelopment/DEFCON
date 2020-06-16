@@ -34,7 +34,10 @@ namespace Kaida.Modules.Owner
                 Title = $"Notification from {owner.Username}",
                 Description = content,
                 Color = DiscordColor.IndianRed,
-                ThumbnailUrl = owner.AvatarUrl,
+                Thumbnail = new DiscordEmbedBuilder.EmbedThumbnail()
+                {
+                    Url = owner.AvatarUrl
+                },
                 Timestamp = DateTimeOffset.UtcNow
             };
 

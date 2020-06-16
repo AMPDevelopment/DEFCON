@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DSharpPlus;
@@ -82,6 +83,12 @@ namespace Kaida.Library.Extensions
         public static async Task<string> CreatedAtLongDateTimeString(this DiscordGuild guild)
         {
             return $"{guild.CreationTimestamp.UtcDateTime.ToLongDateString()}, {guild.CreationTimestamp.UtcDateTime.ToShortTimeString()}";
+        }
+
+        public static async Task<int> GetDays(this DiscordGuild guild)
+        {
+            var span = DateTimeOffset.UtcNow.Subtract(guild.CreationTimestamp.UtcDateTime);
+            return (int) span.TotalDays;
         }
 
         public static async Task<string> GetPremiumTier(this DiscordGuild guild)

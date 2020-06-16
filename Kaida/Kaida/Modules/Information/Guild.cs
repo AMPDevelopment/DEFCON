@@ -5,7 +5,6 @@ using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
-using DSharpPlus.Entities;
 using Kaida.Entities.Discord.Embeds;
 using Kaida.Library.Attributes;
 using Kaida.Library.Extensions;
@@ -35,18 +34,19 @@ namespace Kaida.Modules.Information
         public async Task Info(CommandContext context)
         {
             var guild = context.Guild;
-            var channels = guild.Channels.Values.ToList();
-            var roles = guild.Roles.Values.ToList();
-            var members = guild.GetAllMembersAsync().GetAwaiter().GetResult().ToList();
+            var channels = guild.GetChannelsAsync().ConfigureAwait(true).GetAwaiter().GetResult().ToList();
+            var roles = await guild.GetRoles();
+            var emojis = guild.GetEmojisAsync().ConfigureAwait(true).GetAwaiter().GetResult().ToList();
+            var members = guild.GetAllMembersAsync().ConfigureAwait(true).GetAwaiter().GetResult().ToList();
 
             var owner = guild.Owner;
             var prefix = redis.GetAsync<Data.Guilds.Guild>(RedisKeyNaming.Guild(context.Guild.Id)).GetAwaiter().GetResult().Prefix;
 
-            var guildAuthor = new EmbedAuthor {Name = guild.Name, IconUrl = guild.IconUrl};
+            var guildAuthor = new EmbedAuthor { Name = guild.Name, IconUrl = guild.IconUrl };
 
             var ownerDetails = new StringBuilder()
-                              .AppendLine($"Username: `{owner.GetUsertag()}`")
-                              .AppendLine($"Identity: `{owner.Id}`")
+                              .AppendLine($"Username: {owner.Mention} {Formatter.InlineCode(owner.GetUsertag())}")
+                              .AppendLine($"Identity: {Formatter.InlineCode(owner.Id.ToString())}")
                               .ToString();
 
             var premiumTierCount = guild.PremiumSubscriptionCount;
@@ -58,37 +58,44 @@ namespace Kaida.Modules.Information
 
             var botsCount = members.Count(x => x.IsBot);
             var humansCount = guild.MemberCount - botsCount;
-            var membersOnlineCount = members.Count(x => x.Presence != null && x.Presence.Status == UserStatus.Online);
-            var membersDnDCount = members.Count(x => x.Presence != null && x.Presence.Status == UserStatus.DoNotDisturb);
-            var membersIdleCount = members.Count(x => x.Presence != null && x.Presence.Status == UserStatus.Idle);
+            var membersOnlineCount = await members.Online();
+            var membersDnDCount = await members.DoNotDisturb();
+            var membersIdleCount = await members.Idle();
+            var membersOfflineCount = humansCount - membersOnlineCount - membersIdleCount - membersDnDCount;
+
             var membersLabel = members.Count == 1 ? "1 Member" : $"{members.Count} Members";
-            var memberDetails = new StringBuilder()
-                               .AppendLine($"{membersOnlineCount} online")
-                               .AppendLine($"{membersDnDCount} busy")
-                               .AppendLine($"{membersIdleCount} idling")
-                               .AppendLine($"{humansCount} humans, {botsCount} bots")
-                               .ToString();
+
+            var memberDetails = new StringBuilder().AppendLineBold(":busts_in_silhouette: Humans", humansCount)
+                                                   .AppendLineBold(":robot: Bots", botsCount)
+                                                   .AppendLineBold(":green_circle: Online", membersOnlineCount)
+                                                   .AppendLineBold(":orange_circle: Idle", membersIdleCount)
+                                                   .AppendLineBold(":red_circle: DnD", membersDnDCount)
+                                                   .AppendLineBold(":white_circle: Offline", membersOfflineCount)
+                                                   .ToString();
 
             var totalChannelsCount = channels.Count;
-            var categoryChannelCount = channels.Count(x => x.IsCategory);
-            var textChannelCount = channels.Count(x => x.Type == ChannelType.Text);
-            var voiceChannelCount = channels.Count(x => x.Type == ChannelType.Voice);
-
+            var categoryChannelCount = await channels.Categories();
+            var textChannelCount = await channels.Texts();
+            var nsfwChannelCount = await channels.NSFW();
+            var voiceChannelCount = await channels.Voices();
+            
             var channelsLabel = totalChannelsCount == 1 ? "1 Channel" : $"{totalChannelsCount} Channels";
-            var categoryChannelLabel = categoryChannelCount == 1 ? "1 category" : $"{categoryChannelCount} categories";
-            var textChannelLabel = textChannelCount == 1 ? "1 text channel" : $"{textChannelCount} text channels";
-            var voiceChannelLabel = voiceChannelCount == 1 ? "1 voice channel" : $"{voiceChannelCount} voice channels";
 
-            var channelDetails = new StringBuilder()
-                                .AppendLine(categoryChannelLabel)
-                                .AppendLine(textChannelLabel)
-                                .AppendLine(voiceChannelLabel)
-                                .ToString();
+            var channelDetails = new StringBuilder().AppendLineBold(":file_folder: Category", categoryChannelCount)
+                                                    .AppendLineBold(":speech_balloon: Text", textChannelCount)
+                                                    .AppendLineBold(":underage: NSFW", nsfwChannelCount)
+                                                    .AppendLineBold(":loud_sound: Voice", voiceChannelCount)
+                                                    .ToString();
 
-            var rolesCount = roles.Count(x => x.Name != "@everyone");
-            var rolesLabel = rolesCount == 1 ? "1 Role" : $"{rolesCount} Roles";
 
-            var rolesDetails = $"Use {Formatter.InlineCode($"{prefix}server roles")} to see a list with all roles.";
+            var afkChannel = guild.AfkChannel != null ? guild.AfkChannel.Name : "Not set";
+            var afkTimeout = guild.AfkTimeout / 60;
+
+            var miscDetails = new StringBuilder().AppendLineBold("AFK Channel", afkChannel)
+                                                 .AppendLineBold("AFK Timeout", $"{afkTimeout}min")
+                                                 .AppendLineBold("Roles", roles.Count)
+                                                 .AppendLineBold("Emojis", emojis.Count)
+                                                 .ToString();
 
             var fields = new List<EmbedField>
             {
@@ -98,38 +105,23 @@ namespace Kaida.Modules.Information
                 new EmbedField {Inline = true, Name = "Region", Value = $"{guild.VoiceRegion.Name}"},
                 new EmbedField {Inline = true, Name = membersLabel, Value = memberDetails},
                 new EmbedField {Inline = true, Name = channelsLabel, Value = channelDetails},
-                new EmbedField {Inline = false, Name = rolesLabel, Value = rolesDetails}
+                new EmbedField {Inline = true, Name = "Misc", Value = miscDetails}
             };
+
+            var guildDays = await guild.GetDays();
+            var guildSinceDays = guildDays == 1 ? $"yesterday" : guildDays == 0 ? "today" : $"{Formatter.Bold($"{guildDays}")} days ago";
 
             var embed = new Embed
             {
                 Description = new StringBuilder()
                              .AppendLine($"Identity: {Formatter.InlineCode($"{guild.Id}")}")
-                             .AppendLine($"Created at: {await guild.CreatedAtLongDateTimeString()}")
+                             .AppendLine($"Created at: {await guild.CreatedAtLongDateTimeString()} ({guildSinceDays})")
                              .AppendLine($"Server Prefix: {Formatter.InlineCode(prefix)}")
                              .ToString(),
                 ThumbnailUrl = guild.IconUrl,
                 Author = guildAuthor,
                 Fields = fields
             };
-
-            await context.SendEmbedMessageAsync(embed);
-        }
-
-        [Command("Roles")]
-        [Aliases("R")]
-        public async Task Roles(CommandContext context)
-        {
-            var guild = context.Guild;
-            var roles = guild.Roles.Values;
-
-            var guildAuthor = new EmbedAuthor {Name = guild.Name, IconUrl = guild.IconUrl};
-
-            var rolesList = roles.Where(x => x.Name != "@everyone")
-                                 .OrderByDescending(r => r.Position)
-                                 .Aggregate("", (current, x) => current + $"<@&{x.Id}>\n");
-
-            var embed = new Embed {Description = rolesList, ThumbnailUrl = guild.IconUrl, Author = guildAuthor};
 
             await context.SendEmbedMessageAsync(embed);
         }

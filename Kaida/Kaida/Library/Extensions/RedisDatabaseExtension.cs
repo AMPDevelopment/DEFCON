@@ -64,15 +64,45 @@ namespace Kaida.Library.Extensions
                     Id = guildId,
                     Prefix = ApplicationInformation.DefaultPrefix,
                     ModeratorRoleIds = new List<ulong>(),
-                    ModeratorAllowedWarn = true,
-                    ModeratorAllowedMute = true,
-                    ModeratorAllowedKick = false,
-                    ModeratorAllowedBan = false,
+                    AllowWarnModerators = false,
+                    AllowMuteModerators = false,
+                    RulesAgreement = new RulesAgreement(),
                     Logs = new List<Log>(),
                     Settings = new List<Setting>(),
-                    ReactionSingles = new List<ReactionSingle>(),
-                    ReactionMenus = new List<ReactionMenu>()
+                    ReactionCategories = new List<ReactionCategory>(),
+                    ReactionMessages = new List<ReactionMessage>()
                 });
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(guild.Prefix))
+                {
+                    guild.Prefix = ApplicationInformation.DefaultPrefix;
+                }
+
+                guild.ModeratorRoleIds ??= new List<ulong>();
+
+                if (guild.AllowWarnModerators != true && guild.AllowWarnModerators != false)
+                {
+                    guild.AllowWarnModerators = false;
+                }
+
+                if (guild.AllowMuteModerators != true && guild.AllowMuteModerators != false)
+                {
+                    guild.AllowMuteModerators = false;
+                }
+
+                guild.RulesAgreement ??= new RulesAgreement()
+                {
+                    MessageId = ulong.MinValue,
+                    RoleId = ulong.MinValue
+                };
+                guild.Logs ??= new List<Log>();
+                guild.Settings ??= new List<Setting>();
+                guild.ReactionCategories ??= new List<ReactionCategory>();
+                guild.ReactionMessages ??= new List<ReactionMessage>();
+
+                await redis.ReplaceAsync<Guild>(RedisKeyNaming.Guild(guildId), guild);
             }
         }
     }

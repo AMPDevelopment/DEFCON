@@ -32,10 +32,14 @@ namespace Kaida.Modules.Information
         public async Task Info(CommandContext context)
         {
             var client = context.Client;
+            var redisInfos = await redis.GetInfoAsync();
+
             var description = new StringBuilder().AppendLine($"App Version: {ApplicationInformation.Version}")
                                                  .AppendLine($"Gateway Version: {client.GatewayVersion}")
                                                  .AppendLine($"DSharpPlus Version: {client.VersionString}")
-                                                 .AppendLine($"Redis Version: soon:tm:")
+                                                 .AppendLine($"Redis Version: {redisInfos.GetValueOrDefault("redis_version")}")
+                                                 .AppendLine($"OS: {redisInfos.GetValueOrDefault("os")}")
+                                                 .AppendLine($"Redis uptime: {TimeSpan.FromSeconds(int.Parse(redisInfos.GetValueOrDefault("uptime_in_seconds")))}")
                                                  .AppendLine($"Shard Id: {client.ShardId}")
                                                  .AppendLine($"Servers: soon:tm:")
                                                  .AppendLine($"Users: soon:tm:").ToString();

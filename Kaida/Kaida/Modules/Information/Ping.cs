@@ -1,11 +1,11 @@
-﻿using System.Collections.Generic;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.CommandsNext.Attributes;
-using Kaida.Entities.Discord.Embeds;
+using DSharpPlus.Entities;
 using Kaida.Library.Attributes;
 using Kaida.Library.Extensions;
 using Serilog;
+using StackExchange.Redis.Extensions.Core.Abstractions;
 
 namespace Kaida.Modules.Information
 {
@@ -14,24 +14,18 @@ namespace Kaida.Modules.Information
     public class Ping : BaseCommandModule
     {
         private readonly ILogger logger;
+        private readonly IRedisDatabase redis;
 
-        public Ping(ILogger logger)
+        public Ping(ILogger logger, IRedisDatabase redis)
         {
             this.logger = logger;
+            this.redis = redis;
         }
 
         [GroupCommand]
         public async Task Pong(CommandContext context)
         {
-            var fields = new List<EmbedField> {new EmbedField
-            {
-                Inline = true, 
-                Name = "Ping",
-                Value = $":KaidaPing: {context.Client.Ping}ms"
-            }};
-            var embed = new Embed {Title = "Status", Fields = fields};
-
-            await context.SendEmbedMessageAsync(embed);
+            await context.RespondAsync($"{DiscordEmoji.FromGuildEmote(context.Client, EmojiLibrary.Ping)} {context.Client.Ping}ms");
         }
     }
 }

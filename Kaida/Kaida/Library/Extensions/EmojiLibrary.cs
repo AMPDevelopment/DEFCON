@@ -8,5 +8,9 @@
         public static ulong Update => 716334262692872233;
         public static ulong Erase => 716334262420242533;
         public static ulong Edit => 716334262554722406;
+        public static ulong Verified => 716334262369910815;
+        public static ulong Accepted => 716334262193881189;
+        public static ulong Denied => 716334262542008380;
+        public static ulong Ping => 716334262692872242;
     }
 }
