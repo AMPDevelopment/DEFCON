@@ -28,10 +28,10 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="DSharpPlus" Version="4.0.0-nightly-00705" />
-		<PackageReference Include="DSharpPlus.CommandsNext" Version="4.0.0-nightly-00705" />
-		<PackageReference Include="DSharpPlus.Interactivity" Version="4.0.0-nightly-00705" />
-		<PackageReference Include="DSharpPlus.Rest" Version="4.0.0-nightly-00705" />
+		<PackageReference Include="DSharpPlus" Version="4.0.0-nightly-00707" />
+		<PackageReference Include="DSharpPlus.CommandsNext" Version="4.0.0-nightly-00707" />
+		<PackageReference Include="DSharpPlus.Interactivity" Version="4.0.0-nightly-00707" />
+		<PackageReference Include="DSharpPlus.Rest" Version="4.0.0-nightly-00707" />
 		<PackageReference Include="Magick.NET-Q8-AnyCPU" Version="7.17.0.1" />
 		<PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="3.0.0">
 			<PrivateAssets>all</PrivateAssets>

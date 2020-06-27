@@ -59,8 +59,8 @@ namespace Kaida.Modules.Information
 
             if (member.IsOwner)
             {
-                description.AppendLine(owners.Any(x => x.Id == member.Id) 
-                                           ? $"{DiscordEmoji.FromGuildEmote(context.Client, EmojiLibrary.Verified)} {Formatter.InlineCode("Guild and Bot Owner")}" 
+                description.AppendLine(owners.Any(x => x.Id == member.Id)
+                                           ? $"{DiscordEmoji.FromGuildEmote(context.Client, EmojiLibrary.Verified)} {Formatter.InlineCode("Guild and Bot Owner")}"
                                            : $"{DiscordEmoji.FromGuildEmote(context.Client, EmojiLibrary.Verified)} {Formatter.InlineCode("Guild Owner")}");
             }
             else if (owners.Any(x => x.Id == member.Id))
@@ -73,7 +73,7 @@ namespace Kaida.Modules.Information
             }
 
             var userDays = await member.GetDaysExisting();
-            var userSinceDays =  userDays == 1 ? $"yesterday" : userDays == 0 ? "today" : $"{Formatter.Bold($"{userDays}")} days";
+            var userSinceDays = userDays == 1 ? $"yesterday" : userDays == 0 ? "today" : $"{Formatter.Bold($"{userDays}")} days";
 
             var memberDays = await member.GetMemberDays();
             var memberSinceDays = memberDays == 1 ? $"yesterday" : memberDays == 0 ? "today" : $"{Formatter.Bold($"{memberDays}")} days ago";
@@ -82,7 +82,7 @@ namespace Kaida.Modules.Information
                        .AppendLine($"Registered: {await member.CreatedAtLongDateTimeString()} ({userSinceDays})")
                        .AppendLine($"Joined: {await member.JoinedAtLongDateTimeString()} ({memberSinceDays})")
                        .AppendLine($"Join Position: #{await JoinPosition(member, context.Guild)}");
-                       
+
 
             var roles = string.Empty;
 
@@ -105,7 +105,7 @@ namespace Kaida.Modules.Information
                                                  .AppendLine($"Mutes: {userGuildInfractions.Count(x => x.InfractionType == InfractionType.Mute)}")
                                                  .AppendLine($"Kicks: {userGuildInfractions.Count(x => x.InfractionType == InfractionType.Kick)}").ToString();
 
-            var permissions = await UserKeyPermissions(member);
+            var keys = await UserKeyPermissions(member);
 
             var fields = new List<EmbedField>
             {
@@ -114,16 +114,26 @@ namespace Kaida.Modules.Information
                 new EmbedField {Inline = false, Name = "Roles", Value = roles}
             };
 
-            if (!string.IsNullOrWhiteSpace(permissions))
+            if (!string.IsNullOrWhiteSpace(keys[0]))
             {
                 fields.Add(new EmbedField()
                 {
                     Name = "Key Permissions",
-                    Value = permissions,
+                    Value = keys[0],
                     Inline = false
                 });
             }
 
+            if (!string.IsNullOrWhiteSpace(keys[1]))
+            {
+                fields.Add(new EmbedField()
+                {
+                    Name = "Acknowledgement",
+                    Value = keys[1],
+                    Inline = false
+                });
+            }
+            
             var embed = new Embed
             {
                 Description = description.ToString(),
@@ -144,51 +154,91 @@ namespace Kaida.Modules.Information
             return joinPosition;
         }
 
-        private async Task<string> UserKeyPermissions(DiscordMember member)
+        private static async Task<string[]> UserKeyPermissions(DiscordMember member)
         {
+            var keys = new []{"", ""};
+            var acknowledgement = string.Empty;
             var permissions = new List<string>();
-            if (member.Roles.Any(x => x.CheckPermission(Permissions.Administrator) == PermissionLevel.Allowed))
+
+            if (member.IsOwner)
+            {
+                acknowledgement = "Server Owner";
+            }
+            else if (member.Roles.Any(x => x.CheckPermission(Permissions.Administrator) == PermissionLevel.Allowed))
             {
                 permissions.Add(Permissions.Administrator.ToPermissionString());
-            }
-            if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageGuild) == PermissionLevel.Allowed))
-            {
                 permissions.Add(Permissions.ManageGuild.ToPermissionString());
-            }
-            if (member.Roles.Any(x => x.CheckPermission(Permissions.BanMembers) == PermissionLevel.Allowed))
-            {
                 permissions.Add(Permissions.BanMembers.ToPermissionString());
-            }
-            if (member.Roles.Any(x => x.CheckPermission(Permissions.KickMembers) == PermissionLevel.Allowed))
-            {
                 permissions.Add(Permissions.KickMembers.ToPermissionString());
-            }
-            if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageChannels) == PermissionLevel.Allowed))
-            {
                 permissions.Add(Permissions.ManageChannels.ToPermissionString());
-            }
-            if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageWebhooks) == PermissionLevel.Allowed))
-            {
                 permissions.Add(Permissions.ManageWebhooks.ToPermissionString());
-            }
-            if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageRoles) == PermissionLevel.Allowed))
-            {
                 permissions.Add(Permissions.ManageRoles.ToPermissionString());
-            }
-            if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageMessages) == PermissionLevel.Allowed))
-            {
                 permissions.Add(Permissions.ManageMessages.ToPermissionString());
-            }
-            if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageEmojis) == PermissionLevel.Allowed))
-            {
                 permissions.Add(Permissions.ManageEmojis.ToPermissionString());
-            }
-            if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageNicknames) == PermissionLevel.Allowed))
-            {
                 permissions.Add(Permissions.ManageNicknames.ToPermissionString());
+
+                acknowledgement = "Server Administration";
+            }
+            else
+            {
+                if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageGuild) == PermissionLevel.Allowed))
+                {
+                    permissions.Add(Permissions.ManageGuild.ToPermissionString());
+                }
+                if (member.Roles.Any(x => x.CheckPermission(Permissions.BanMembers) == PermissionLevel.Allowed))
+                {
+                    permissions.Add(Permissions.BanMembers.ToPermissionString());
+                }
+                if (member.Roles.Any(x => x.CheckPermission(Permissions.KickMembers) == PermissionLevel.Allowed))
+                {
+                    permissions.Add(Permissions.KickMembers.ToPermissionString());
+                }
+                if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageChannels) == PermissionLevel.Allowed))
+                {
+                    permissions.Add(Permissions.ManageChannels.ToPermissionString());
+                }
+                if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageWebhooks) == PermissionLevel.Allowed))
+                {
+                    permissions.Add(Permissions.ManageWebhooks.ToPermissionString());
+                }
+                if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageRoles) == PermissionLevel.Allowed))
+                {
+                    permissions.Add(Permissions.ManageRoles.ToPermissionString());
+                }
+                if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageMessages) == PermissionLevel.Allowed))
+                {
+                    permissions.Add(Permissions.ManageMessages.ToPermissionString());
+                }
+                if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageEmojis) == PermissionLevel.Allowed))
+                {
+                    permissions.Add(Permissions.ManageEmojis.ToPermissionString());
+                }
+                if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageNicknames) == PermissionLevel.Allowed))
+                {
+                    permissions.Add(Permissions.ManageNicknames.ToPermissionString());
+                }
+
+                if (member.Roles.Any(x => x.CheckPermission(Permissions.ManageGuild) == PermissionLevel.Allowed))
+                {
+                    acknowledgement = "Server Manager";
+                }
+                else if (member.Roles.Any(x => x.CheckPermission(Permissions.BanMembers) == PermissionLevel.Allowed ||
+                         x.CheckPermission(Permissions.KickMembers) == PermissionLevel.Allowed ||
+                         x.CheckPermission(Permissions.ManageChannels) == PermissionLevel.Allowed ||
+                         x.CheckPermission(Permissions.ManageWebhooks) == PermissionLevel.Allowed ||
+                         x.CheckPermission(Permissions.ManageRoles) == PermissionLevel.Allowed ||
+                         x.CheckPermission(Permissions.ManageMessages) == PermissionLevel.Allowed ||
+                         x.CheckPermission(Permissions.ManageEmojis) == PermissionLevel.Allowed ||
+                         x.CheckPermission(Permissions.ManageNicknames) == PermissionLevel.Allowed))
+                {
+                    acknowledgement = "Server Moderator";
+                }
             }
 
-            return string.Join(", ", permissions);
+            keys[0] = string.Join(", ", permissions);
+            keys[1] = acknowledgement;
+
+            return keys;
         }
     }
 }

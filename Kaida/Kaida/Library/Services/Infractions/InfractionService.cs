@@ -34,7 +34,7 @@ namespace Kaida.Library.Services.Infractions
 
             if (owners.Any(x => x.Id == suspect.Id))
             {
-                await channel.SendMessageAsync($"You can not {verb} my masters!");
+                await channel.SendMessageAsync($"You can not {verb} my master!");
             }
             else if (await redis.IsModerator(guild.Id, moderator) == false)
             {

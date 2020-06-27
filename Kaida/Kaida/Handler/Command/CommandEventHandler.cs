@@ -13,7 +13,7 @@ using Kaida.Library.Attributes;
 using Kaida.Library.Extensions;
 using Serilog;
 
-namespace Kaida.Handler
+namespace Kaida.Handler.Command
 {
     public class CommandEventHandler
     {
@@ -58,6 +58,8 @@ namespace Kaida.Handler
             var guild = context.Guild;
             var channel = context.Channel;
             var user = context.User;
+
+            var application = await context.Client.GetCurrentApplicationAsync();
 
             if (!channel.IsPrivate)
             {
@@ -129,28 +131,31 @@ namespace Kaida.Handler
                     await guild.GetMemberAsync(user.Id)
                                .Result.SendEmbedMessageAsync(embed);
                 }
-
-                if (e.Exception is ArgumentException argumentException)
+                
+                if (application.Owners.Any(x => x.Id == user.Id))
                 {
-                    var embed = new Embed
+                    if (e.Exception is ArgumentException argumentException)
                     {
-                        Title = ":no_entry: Argument Exception",
-                        Description = $"{argumentException.Message}",
-                        Color = DiscordColor.Aquamarine,
-                        Fields = new List<EmbedField> { new EmbedField { Name = "Command Example", Value = Formatter.InlineCode($"{commandName} SOON AVAILABLE") } },
-                        Footer = new EmbedFooter { Text = $"Requested on {guild.Name} | {guild.Id}", IconUrl = guild.IconUrl }
-                    };
+                        var embed = new Embed
+                        {
+                            Title = ":no_entry: Argument Exception",
+                            Description = $"{argumentException.Message}",
+                            Color = DiscordColor.Aquamarine,
+                            Fields = new List<EmbedField> { new EmbedField { Name = "Command Example", Value = Formatter.InlineCode($"{commandName} SOON AVAILABLE") } },
+                            Footer = new EmbedFooter { Text = $"Requested on {guild.Name} | {guild.Id}", IconUrl = guild.IconUrl }
+                        };
 
-                    await guild.GetMemberAsync(user.Id)
-                               .Result.SendEmbedMessageAsync(embed);
-                }
+                        await guild.GetMemberAsync(user.Id)
+                                   .Result.SendEmbedMessageAsync(embed);
+                    }
 
-                if (e.Exception is InvalidOperationException invalidOperationException)
-                {
-                    var embed = new Embed { Title = ":no_entry: Invalid Operation", Description = $"{invalidOperationException.Message}", Color = DiscordColor.Aquamarine, Footer = new EmbedFooter { Text = $"Requested on {guild.Name} | {guild.Id}", IconUrl = guild.IconUrl } };
+                    if (e.Exception is InvalidOperationException invalidOperationException)
+                    {
+                        var embed = new Embed { Title = ":no_entry: Invalid Operation", Description = $"{invalidOperationException.Message}", Color = DiscordColor.Aquamarine, Footer = new EmbedFooter { Text = $"Requested on {guild.Name} | {guild.Id}", IconUrl = guild.IconUrl } };
 
-                    await guild.GetMemberAsync(user.Id)
-                               .Result.SendEmbedMessageAsync(embed);
+                        await guild.GetMemberAsync(user.Id)
+                                   .Result.SendEmbedMessageAsync(embed);
+                    }
                 }
 
                 logger.Error(e.Exception, $"The command '{commandName}' has been errored by '{user.GetUsertag()}' in the channel '{channel.Name}' ({channel.Id}) on the guild '{guild.Name}' ({guild.Id}).");

@@ -30,7 +30,7 @@ namespace Kaida.Modules.Moderation
         {
             var guild = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(context.Guild.Id));
 
-            if (guild.RulesAgreement.MessageId == UInt64.MinValue)
+            if (guild.RulesAgreement.MessageId == ulong.MinValue)
             {
                 var acceptedEmoji = DiscordEmoji.FromGuildEmote(context.Client, EmojiLibrary.Accepted);
                 var deniedEmoji = DiscordEmoji.FromGuildEmote(context.Client, EmojiLibrary.Denied);

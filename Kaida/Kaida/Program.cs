@@ -11,12 +11,14 @@ using DSharpPlus.Interactivity.Enums;
 using ImageMagick;
 using Kaida.Data.Configuration;
 using Kaida.Data.Guilds;
-using Kaida.Handler;
+using Kaida.Handler.Client;
+using Kaida.Handler.Command;
 using Kaida.Library.Extensions;
 using Kaida.Library.Formatters;
 using Kaida.Library.Logger;
 using Kaida.Library.Redis;
 using Kaida.Library.Services.Infractions;
+using Kaida.Library.Services.Logs;
 using Kaida.Library.Services.Reactions;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
@@ -35,6 +37,7 @@ namespace Kaida
         private ILogger logger;
         private IReactionService reactionService;
         private IInfractionService infractionService;
+        private ILogService logService;
         private IRedisDatabase redis;
         private IServiceProvider serviceProvider;
         private IServiceCollection services;
@@ -87,8 +90,10 @@ namespace Kaida
 
             reactionService = new ReactionService(logger, redis);
             infractionService = new InfractionService(logger, redis);
+            logService = new LogService(logger, redis);
             services.AddSingleton(reactionService)
-                    .AddSingleton(infractionService);
+                    .AddSingleton(infractionService)
+                    .AddSingleton(logService);
             serviceProvider = services.BuildServiceProvider();
             logger.Information("Successfully setup the services.");
 
@@ -165,7 +170,7 @@ namespace Kaida
             await client.StartAsync()
                         .ConfigureAwait(true);
             logger.Information("Setting up client event handler...");
-            clientEventHandler = new ClientEventHandler(client, logger, redis, reactionService);
+            clientEventHandler = new ClientEventHandler(client, logger, redis, reactionService, logService);
 
             foreach (var shard in client.ShardClients.Values)
             {
