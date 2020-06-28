@@ -31,23 +31,33 @@ namespace Kaida.Library.Services.Infractions
             var owners = client.CurrentApplication.Owners;
             var verb = infractionType.ToInfractionString().ToLowerInvariant();
             var action = infractionType.ToActionString().ToLowerInvariant();
+            var isAdministrator = moderator.PermissionsIn(channel)
+                                           .HasPermission(Permissions.Administrator);
+
+            var isSuspectAdministrator = suspect.PermissionsIn(channel)
+                                           .HasPermission(Permissions.Administrator);
 
             if (owners.Any(x => x.Id == suspect.Id))
             {
                 await channel.SendMessageAsync($"You can not {verb} my master!");
             }
-            else if (await redis.IsModerator(guild.Id, moderator) == false)
+            else if (await redis.IsModerator(guild.Id, moderator) == false || !isAdministrator)
             {
-                await channel.SendMessageAsync("You are not a moderator!");
+                await channel.SendMessageAsync("You are not a moderator or administrator!");
             }
             else if (moderator == suspect)
             {
                 await channel.SendMessageAsync($"You can not {verb} yourself!");
             }
+            else if (isSuspectAdministrator)
+            {
+                await channel.SendMessageAsync($"You can not {verb} a administrator!");
+            }
             else if (await redis.IsModerator(guild.Id, suspect))
             {
                 var guildData = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(guild.Id));
 
+                
                 if (infractionType == InfractionType.Ban || infractionType == InfractionType.Kick)
                 {
                     await channel.SendMessageAsync($"You can not {verb} a moderator!");

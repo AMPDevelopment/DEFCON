@@ -88,9 +88,9 @@ namespace Kaida.Library.Formatters
 
             if (Command == null)
             {
-                embed.AddField("For more information type", $"{ApplicationInformation.DefaultPrefix}help <command>", false);
+                embed.AddField("For more information type", $"help <command>", false);
                 embed.AddField("Support Server", Formatter.MaskedUrl("Join our support server", new Uri(ApplicationInformation.DiscordServer)), true);
-                embed.AddField("Add Kaida", Formatter.MaskedUrl("Invite Kaida to your guild", new Uri(Context.Client.GenerateInviteLink())), true);
+                embed.AddField("Add Kaida", Formatter.MaskedUrl("Invite Kaida to your server", new Uri(Context.Client.GenerateInviteLink())), true);
             }
             return this;
         }

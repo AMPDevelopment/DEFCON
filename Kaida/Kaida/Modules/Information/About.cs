@@ -75,6 +75,7 @@ namespace Kaida.Modules.Information
         }
 
         [Command("Owners")]
+        [Description("Shows a list of my masters!")]
         public async Task Owners(CommandContext context)
         {
             var owners = context.Client.CurrentApplication.Owners;

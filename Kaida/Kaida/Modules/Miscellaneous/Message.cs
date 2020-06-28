@@ -10,6 +10,7 @@ using StackExchange.Redis.Extensions.Core.Abstractions;
 namespace Kaida.Modules.Miscellaneous
 {
     [RequirePermissions(Permissions.ManageMessages)]
+    [Description("Let the bot write your message for you.")]
     [RequireGuild]
     public class Message : BaseCommandModule
     {

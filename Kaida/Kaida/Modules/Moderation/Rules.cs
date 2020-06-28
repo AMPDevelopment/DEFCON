@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DSharpPlus;
+using System;
 using System.Text;
 using System.Threading.Tasks;
 using DSharpPlus.CommandsNext;
@@ -13,6 +14,7 @@ using StackExchange.Redis.Extensions.Core.Abstractions;
 namespace Kaida.Modules.Moderation
 {
     [Group("Rules")]
+    [RequireUserPermissions(Permissions.ManageGuild)]
     [RequireGuild]
     public class Rules : BaseCommandModule
     {
@@ -26,7 +28,7 @@ namespace Kaida.Modules.Moderation
         }
 
         [Command("Agreement")]
-        public async Task RulesAgreement(CommandContext context, DiscordRole role)
+        public async Task RulesAgreement(CommandContext context, [Description("The 'I agreed' role.")] DiscordRole role)
         {
             var guild = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(context.Guild.Id));
 

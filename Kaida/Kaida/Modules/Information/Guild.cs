@@ -15,8 +15,7 @@ using StackExchange.Redis.Extensions.Core.Abstractions;
 namespace Kaida.Modules.Information
 {
     [Category("Information")]
-    [Group("Guild")]
-    [Aliases("Server")]
+    [Group("Server")]
     [RequireGuild]
     public class Guild : BaseCommandModule
     {
@@ -31,6 +30,7 @@ namespace Kaida.Modules.Information
 
         [Command("Info")]
         [Aliases("I")]
+        [Description("Shows the server information.")]
         public async Task Info(CommandContext context)
         {
             var guild = context.Guild;
@@ -56,14 +56,15 @@ namespace Kaida.Modules.Information
                                     .AppendLine(premiumTierSubsLabel)
                                     .ToString();
 
+            var membersTotal = guild.MemberCount;
             var botsCount = members.Count(x => x.IsBot);
-            var humansCount = guild.MemberCount - botsCount;
+            var humansCount = membersTotal - botsCount;
             var membersOnlineCount = await members.Online();
             var membersDnDCount = await members.DoNotDisturb();
             var membersIdleCount = await members.Idle();
-            var membersOfflineCount = humansCount - membersOnlineCount - membersIdleCount - membersDnDCount;
+            var membersOfflineCount = membersTotal - (membersOnlineCount + membersIdleCount + membersDnDCount);
 
-            var membersLabel = members.Count == 1 ? "1 Member" : $"{members.Count} Members";
+            var membersLabel = members.Count == 1 ? "1 Member" : $"{membersTotal} Members";
 
             var memberDetails = new StringBuilder().AppendLineBold(":busts_in_silhouette: Humans", humansCount)
                                                    .AppendLineBold(":robot: Bots", botsCount)

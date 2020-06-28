@@ -336,8 +336,8 @@ namespace Kaida.Library.Services.Logs
                         var channel = voiceStateUpdateEventArgs.Channel;
                         var before = voiceStateUpdateEventArgs.Before;
                         var after = voiceStateUpdateEventArgs.After;
-                        var beforeChannel = voiceStateUpdateEventArgs.Before.Channel == null ? null : voiceStateUpdateEventArgs.Before.Channel;
-                        var afterChannel = voiceStateUpdateEventArgs.After.Channel;
+                        var beforeChannel = voiceStateUpdateEventArgs.Before?.Channel;
+                        var afterChannel = voiceStateUpdateEventArgs.After?.Channel;
                         var acceptedEmoji = DiscordEmoji.FromGuildEmote(voiceStateUpdateEventArgs.Client, EmojiLibrary.Accepted);
                         var deniedEmoji = DiscordEmoji.FromGuildEmote(voiceStateUpdateEventArgs.Client, EmojiLibrary.Denied);
 

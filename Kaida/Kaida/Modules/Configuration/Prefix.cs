@@ -11,6 +11,7 @@ using StackExchange.Redis.Extensions.Core.Abstractions;
 namespace Kaida.Modules.Configuration
 {
     [Group("Prefix")]
+    [Description("Shows the guilds command prefix.")]
     [RequireGuild]
     public class Prefix : BaseCommandModule
     {
@@ -32,8 +33,9 @@ namespace Kaida.Modules.Configuration
         }
 
         [Command("Set")]
+        [Description("Set the command prefix for this guild.")]
         [RequirePermissions(Permissions.ManageGuild)]
-        public async Task SetPrefix(CommandContext context, string prefix)
+        public async Task SetPrefix(CommandContext context, [Description("The new command prefix.")] string prefix)
         {
             var guild = await redis.GetAsync<Data.Guilds.Guild>(RedisKeyNaming.Guild(context.Guild.Id));
 

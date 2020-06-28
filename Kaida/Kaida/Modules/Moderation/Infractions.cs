@@ -26,18 +26,9 @@ namespace Kaida.Modules.Moderation
         }
 
         [GroupCommand]
-        [Priority(1)]
-        public async Task View(CommandContext context, DiscordMember suspect = null)
+        public async Task View(CommandContext context, [Description("The suspect.")] DiscordMember suspect = null)
         {
             suspect = suspect == null ? context.Member : suspect;
-            await infractionService.ViewInfractions(context.Guild, context.Channel, suspect);
-        }
-
-        [GroupCommand]
-        [Priority(2)]
-        public async Task View(CommandContext context, ulong suspectId)
-        {
-            var suspect = await context.Guild.GetMemberAsync(suspectId);
             await infractionService.ViewInfractions(context.Guild, context.Channel, suspect);
         }
     }

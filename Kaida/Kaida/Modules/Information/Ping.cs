@@ -11,6 +11,7 @@ namespace Kaida.Modules.Information
 {
     [Category("Information")]
     [Group("Ping")]
+    [Description("Shows how good I am in Ping Pong.")]
     public class Ping : BaseCommandModule
     {
         private readonly ILogger logger;

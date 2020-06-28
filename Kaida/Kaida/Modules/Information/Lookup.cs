@@ -27,7 +27,7 @@ namespace Kaida.Modules.Information
         }
 
         [GroupCommand]
-        public async Task LookupSuspect(CommandContext context, DiscordUser user)
+        public async Task LookupSuspect(CommandContext context, [Description("The suspect.")] DiscordUser user)
         {
             var userDays = await user.GetDaysExisting();
             var userSinceDays =  userDays == 1 ? $"yesterday" : userDays == 0 ? "today" : $"{Formatter.Bold($"{userDays}")} days";

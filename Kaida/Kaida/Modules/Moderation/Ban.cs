@@ -24,18 +24,9 @@ namespace Kaida.Modules.Moderation
         }
 
         [GroupCommand]
-        [Priority(1)]
-        public async Task BanSuspect(CommandContext context, DiscordMember suspect, string reason = "No reason given.")
+        public async Task BanSuspect(CommandContext context, [Description("The suspect.")] DiscordMember suspect, [Description("Reason for the moderation action.")] [RemainingText] string reason = "No reason given.")
         {
             await infractionService.CreateInfraction(context.Guild, context.Channel, context.Client, context.Member, suspect, reason, InfractionType.Ban);
-        } 
-
-        [GroupCommand]
-        [Priority(2)]
-        public async Task HardBan(CommandContext context, ulong suspectId, string reason = "No reason given.")
-        {
-            var suspect = await context.Guild.GetMemberAsync(suspectId);
-            await infractionService.CreateInfraction(context.Guild, context.Channel, context.Client, context.Member, suspect, reason, InfractionType.Ban);
-        } 
+        }
     }
 }

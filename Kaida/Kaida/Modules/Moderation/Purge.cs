@@ -25,7 +25,7 @@ namespace Kaida.Modules.Moderation
         [GroupCommand]
         [Description("Purges an x amount of messages.")]
         [Priority(1)]
-        public async Task PurgeMessages(CommandContext context, int amount, [RemainingText] string reason = null)
+        public async Task PurgeMessages(CommandContext context, int amount, [RemainingText] string reason = "No reason given.")
         {
             var response = await context.RespondAsync($"Deleting {amount} message(s)");
             if (amount <= 5000 && amount >= 1)
@@ -51,7 +51,7 @@ namespace Kaida.Modules.Moderation
         [GroupCommand]
         [Description("Purges all messages from the target within the x amount of messages.")]
         [Priority(2)]
-        public async Task PurgeUserMessages(CommandContext context, DiscordUser user, int amount, [RemainingText] string reason = null)
+        public async Task PurgeUserMessages(CommandContext context, DiscordUser user, int amount, [RemainingText] string reason = "No reason given.")
         {
             var response = await context.RespondAsync($"Deleting {amount} message(s)");
             if (amount <= 5000)
@@ -79,16 +79,10 @@ namespace Kaida.Modules.Moderation
         }
 
         [Command("Emotes")]
-        public async Task PurgeEmotes(CommandContext context, ulong messageId, DiscordEmoji emoji, [RemainingText] string reason = "Unspecified")
+        public async Task PurgeEmotes(CommandContext context, ulong messageId, DiscordEmoji emoji, [RemainingText] string reason = "No reason given.")
         {
             var message = await context.Channel.GetMessageAsync(messageId);
-            var users = await message.GetReactionsAsync(emoji);
-
-            foreach (var user in users)
-            {
-                await message.DeleteReactionAsync(emoji, user, reason);
-                Task.Delay(500);
-            }
+            await message.DeleteReactionsEmojiAsync(emoji);
         }
     }
 }

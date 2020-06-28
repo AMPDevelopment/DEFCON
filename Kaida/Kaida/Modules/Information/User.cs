@@ -19,6 +19,7 @@ namespace Kaida.Modules.Information
     [Category("Information")]
     [Group("User")]
     [Aliases("WhoIs")]
+    [Description("Shows you details about a user on the server.")]
     [RequireGuild]
     public class User : BaseCommandModule
     {
@@ -32,18 +33,10 @@ namespace Kaida.Modules.Information
         }
 
         [GroupCommand]
-        [Priority(1)]
-        public async Task WhoIs(CommandContext context, DiscordUser user = null)
+        public async Task WhoIs(CommandContext context, [Description("The suspect.")] DiscordUser user = null)
         {
             if (user == null) user = context.User;
             await WhoIsPreset(context, user.Id);
-        }
-
-        [GroupCommand]
-        [Priority(2)]
-        public async Task WhoIs(CommandContext context, ulong userId)
-        {
-            await WhoIsPreset(context, userId);
         }
 
         private async Task WhoIsPreset(CommandContext context, ulong userId)
