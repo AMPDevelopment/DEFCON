@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>netcoreapp3.1</TargetFramework>
+		<Authors>Antoine Martins Pacheco</Authors>
+		<Company>AMP Development</Company>
+		<Product>DEFCON</Product>
+		<Copyright>AMP Development</Copyright>
+		<RepositoryUrl>https://github.com/AMPDevelopment/DEFCON</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+	</PropertyGroup>
+
+</Project>
