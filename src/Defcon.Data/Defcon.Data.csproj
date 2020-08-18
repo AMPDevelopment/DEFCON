@@ -15,11 +15,15 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="StackExchange.Redis.Extensions.Core" Version="6.1.7" />
+		<PackageReference Include="StackExchange.Redis.Extensions.Core" Version="6.3.4" />
 	</ItemGroup>
 
 	<ItemGroup>
 	  <ProjectReference Include="..\Defcon.Entities\Defcon.Entities.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Folder Include="Properties\" />
 	</ItemGroup>
 
 </Project>

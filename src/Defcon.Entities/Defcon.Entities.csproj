@@ -10,4 +10,8 @@
 		<RepositoryType>git</RepositoryType>
 	</PropertyGroup>
 
+	<ItemGroup>
+	  <PackageReference Include="DSharpPlus" Version="4.0.0-nightly-00711" />
+	</ItemGroup>
+
 </Project>
