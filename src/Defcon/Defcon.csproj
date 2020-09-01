@@ -67,6 +67,7 @@
 			<AutoGen>True</AutoGen>
 			<DependentUpon>Resources.resx</DependentUpon>
 		</Compile>
+		<Compile Remove="ApplicationInformation.cs" />
 	</ItemGroup>
 
 	<ItemGroup>

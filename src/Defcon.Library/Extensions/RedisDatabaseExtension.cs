@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Defcon.Core;
 using Defcon.Data.Guilds;
 using Defcon.Data.Roles;
 using Defcon.Data.Users;

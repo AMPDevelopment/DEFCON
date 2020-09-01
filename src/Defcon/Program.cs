@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using Defcon.Core;
 using Defcon.Data.Configuration;
 using Defcon.Data.Guilds;
 using Defcon.Handler.Client;
@@ -143,7 +144,7 @@ namespace Defcon
             {
                 Token = config.Token,
                 TokenType = TokenType.Bot,
-                DateTimeFormat = "dd-MM-yyyy HH:mm",
+                LogTimestampFormat = "dd-MM-yyyy HH:mm",
                 AutoReconnect = true,
                 MessageCacheSize = 4096,
                 ReconnectIndefinitely = true,

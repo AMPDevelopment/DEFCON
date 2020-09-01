@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Defcon.Core;
 using Defcon.Library.Extensions;
 using DSharpPlus;
 using DSharpPlus.CommandsNext;
