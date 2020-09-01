@@ -39,6 +39,7 @@ namespace Defcon.Modules.Information
                                                  .AppendLine($"Gateway Version: {client.GatewayVersion}")
                                                  .AppendLine($"DSharpPlus Version: {client.VersionString}")
                                                  .AppendLine($"Redis Version: {redisInfos.GetValueOrDefault("redis_version")}")
+                                                 .AppendLine($"mySQL Version: soon:tm:")
                                                  .AppendLine($"OS: {redisInfos.GetValueOrDefault("os")}")
                                                  .AppendLine($"Redis uptime: {TimeSpan.FromSeconds(int.Parse(redisInfos.GetValueOrDefault("uptime_in_seconds")))}")
                                                  .AppendLine($"Shard Id: {client.ShardId}")
