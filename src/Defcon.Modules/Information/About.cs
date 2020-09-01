@@ -85,7 +85,7 @@ namespace Defcon.Modules.Information
 
             foreach (var owner in owners)
             {
-                description.AppendLine($"{owner.GetUsertag()} | {owner.Id}");
+                description.AppendLine($"{owner.Mention} {owner.GetUsertag()} {FormatterExtension.Spoiler($"{owner.Id}")}");
             }
 
             fields.Add(new EmbedField()
