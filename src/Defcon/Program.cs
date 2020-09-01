@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Defcon.Core;
@@ -86,9 +85,7 @@ namespace Defcon
 
             logger.Information("Initializing the services setup...");
             steam = new Steam("");
-            services = new ServiceCollection().AddSingleton(logger)
-                                              .AddSingleton(steam)
-                                              .AddStackExchangeRedisExtensions<NewtonsoftSerializer>(redisSetup.RedisConfiguration);
+            services = new ServiceCollection().AddStackExchangeRedisExtensions<NewtonsoftSerializer>(redisSetup.RedisConfiguration);
 
             serviceProvider = services.BuildServiceProvider();
             redis = serviceProvider.GetService<IRedisDatabase>();
@@ -96,13 +93,15 @@ namespace Defcon
             reactionService = new ReactionService(logger, redis);
             infractionService = new InfractionService(logger, redis);
             logService = new LogService(logger, redis);
-            services.AddSingleton(reactionService)
+            services.AddSingleton(logger)
+                    .AddSingleton(steam)
+                    .AddSingleton(reactionService)
                     .AddSingleton(infractionService)
                     .AddSingleton(logService);
             serviceProvider = services.BuildServiceProvider();
             logger.Information("Successfully setup the services.");
 
-            config = await redis.GetAsync<Config>(RedisKeyNaming.Config);
+            config = await redis.GetAsync<Config>(RedisKeyNaming.Config).ConfigureAwait(true);
 
             if (config == null || string.IsNullOrWhiteSpace(config.Token))
             {
@@ -116,12 +115,12 @@ namespace Defcon
                     {
                         Token = token
                     };
-                    await redis.AddAsync<Config>(RedisKeyNaming.Config, config);
+                    await redis.AddAsync(RedisKeyNaming.Config, config).ConfigureAwait(true);
                 }
                 else if (string.IsNullOrWhiteSpace(config.Token))
                 {
                     config.Token = token;
-                    await redis.ReplaceAsync<Config>(RedisKeyNaming.Config, config);
+                    await redis.ReplaceAsync(RedisKeyNaming.Config, config).ConfigureAwait(true);
                 }
 
                 logger.Information("Successfully set the bot token into the database.");
@@ -181,13 +180,13 @@ namespace Defcon
             {
                 logger.Information($"Applying configs to shard {shard.ShardId}...");
                 commandsNext = shard.UseCommandsNext(ccfg);
-                commandsNext.RegisterCommands(Assembly.GetExecutingAssembly());
+                commandsNext.RegisterCommands(typeof(Modules.Dummy).Assembly);
                 commandsNext.SetHelpFormatter<HelpFormatter>();
                 shard.UseInteractivity(icfg);
                 logger.Information($"Settings up command event handler for the shard {shard.ShardId}...");
                 commandEventHandler = new CommandEventHandler(commandsNext, logger);
                 logger.Information($"Setup for shard {shard.ShardId} done.");
-                await shard.InitializeAsync();
+                await shard.InitializeAsync().ConfigureAwait(true);
             }
 
             foreach (var cNextRegisteredCommand in commandsNext.RegisteredCommands)
@@ -196,7 +195,7 @@ namespace Defcon
             }
         }
 
-        public Task<int> PrefixResolverAsync(DiscordMessage msg)
+        private Task<int> PrefixResolverAsync(DiscordMessage msg)
         {
             if (msg.Channel.IsPrivate) return Task.FromResult(msg.GetStringPrefixLength(ApplicationInformation.DefaultPrefix));
 
