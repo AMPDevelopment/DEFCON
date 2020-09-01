@@ -1,4 +1,4 @@
-﻿﻿﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
@@ -31,10 +31,10 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="DSharpPlus" Version="4.0.0-nightly-00711" />
-		<PackageReference Include="DSharpPlus.CommandsNext" Version="4.0.0-nightly-00711" />
-		<PackageReference Include="DSharpPlus.Interactivity" Version="4.0.0-nightly-00711" />
-		<PackageReference Include="DSharpPlus.Rest" Version="4.0.0-nightly-00711" />
+		<PackageReference Include="DSharpPlus" Version="4.0.0-nightly-00720" />
+		<PackageReference Include="DSharpPlus.CommandsNext" Version="4.0.0-nightly-00720" />
+		<PackageReference Include="DSharpPlus.Interactivity" Version="4.0.0-nightly-00720" />
+		<PackageReference Include="DSharpPlus.Rest" Version="4.0.0-nightly-00720" />
 		<PackageReference Include="Magick.NET-Q8-AnyCPU" Version="7.21.1" />
 		<PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="3.3.0">
 			<PrivateAssets>all</PrivateAssets>
@@ -46,7 +46,7 @@
 		</PackageReference>
 		<PackageReference Include="morelinq" Version="3.3.2" />
 		<PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
-		<PackageReference Include="Serilog" Version="2.9.1-dev-01172" />
+		<PackageReference Include="Serilog" Version="2.10.0-dev-01240" />
 		<PackageReference Include="Serilog.Formatting.Compact" Version="1.1.0" />
 		<PackageReference Include="Serilog.Sinks.Console" Version="4.0.0-dev-00839" />
 		<PackageReference Include="Serilog.Sinks.File" Version="4.1.0" />
@@ -57,8 +57,11 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <ProjectReference Include="..\Defcon.Core\Defcon.Core.csproj" />
 	  <ProjectReference Include="..\Defcon.Data\Defcon.Data.csproj" />
 	  <ProjectReference Include="..\Defcon.Entities\Defcon.Entities.csproj" />
+	  <ProjectReference Include="..\Defcon.Library\Defcon.Library.csproj" />
+	  <ProjectReference Include="..\Defcon.Modules\Defcon.Modules.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
