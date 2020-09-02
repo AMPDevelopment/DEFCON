@@ -14,7 +14,7 @@ namespace Defcon.Library.Redis
         public Setup(ILogger logger)
         {
             this.logger = logger;
-            Configuration();
+            var configuration = Configuration();
         }
 
         private async Task Configuration()

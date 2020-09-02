@@ -1,4 +1,4 @@
-﻿namespace Defcon.Common.Enums
+﻿namespace Defcon.Core.Entities.Enums
 {
     public enum LogType
     {

@@ -41,7 +41,7 @@ namespace Defcon.Modules.Information
                                                  .AppendLine($"Redis Version: {redisInfos.GetValueOrDefault("redis_version")}")
                                                  .AppendLine($"mySQL Version: soon:tm:")
                                                  .AppendLine($"OS: {redisInfos.GetValueOrDefault("os")}")
-                                                 .AppendLine($"Redis uptime: {TimeSpan.FromSeconds(int.Parse(redisInfos.GetValueOrDefault("uptime_in_seconds")))}")
+                                                 .AppendLine($"Redis uptime: {TimeSpan.FromSeconds(int.Parse(redisInfos.GetValueOrDefault("uptime_in_seconds")!))}")
                                                  .AppendLine($"Shard Id: {client.ShardId}")
                                                  .AppendLine($"Servers: soon:tm:")
                                                  .AppendLine($"Users: soon:tm:").ToString();
@@ -70,34 +70,6 @@ namespace Defcon.Modules.Information
                 Title = "About",
                 Description = description,
                 ThumbnailUrl = context.Client.CurrentUser.AvatarUrl,
-                Fields = fields
-            };
-
-            await context.SendEmbedMessageAsync(embed);
-        }
-
-        [Command("Owners")]
-        [Description("Shows a list of my masters!")]
-        public async Task Owners(CommandContext context)
-        {
-            var owners = context.Client.CurrentApplication.Owners;
-            var fields = new List<EmbedField>();
-            var description = new StringBuilder();
-
-            foreach (var owner in owners)
-            {
-                description.AppendLine($"{owner.Mention} {owner.GetUsertag()} {FormatterExtension.Spoiler($"{owner.Id}")}");
-            }
-
-            fields.Add(new EmbedField()
-            {
-                Inline = false,
-                Name = "Owners",
-                Value = description.ToString()
-            });
-
-            var embed = new Embed()
-            {
                 Fields = fields
             };
 

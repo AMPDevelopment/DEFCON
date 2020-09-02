@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using DSharpPlus.Entities;
 
-namespace Defcon.Entities.Discord.Embeds
+namespace Defcon.Core.Entities.Discord.Embeds
 {
     public class Embed
     {
