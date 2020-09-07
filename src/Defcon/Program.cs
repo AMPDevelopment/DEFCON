@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Defcon.Core;
+using Defcon.Core.Database;
 using Defcon.Data.Configuration;
 using Defcon.Data.Guilds;
 using Defcon.Handler.Client;
@@ -21,6 +22,7 @@ using DSharpPlus.Interactivity;
 using DSharpPlus.Interactivity.Enums;
 using ImageMagick;
 using Microsoft.Extensions.DependencyInjection;
+using MySqlConnector;
 using Serilog;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 using StackExchange.Redis.Extensions.Newtonsoft;
@@ -97,7 +99,8 @@ namespace Defcon
                     .AddSingleton(steam)
                     .AddSingleton(reactionService)
                     .AddSingleton(infractionService)
-                    .AddSingleton(logService);
+                    .AddSingleton(logService)
+                    .AddTransient<MySql>(x => new MySql(host: "", port: 3306, user: "", password: "", database: ""));
             serviceProvider = services.BuildServiceProvider();
             logger.Information("Successfully setup the services.");
 
