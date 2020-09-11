@@ -48,7 +48,7 @@ namespace Defcon.Modules.Miscellaneous
         public async Task Embed(CommandContext context, [RemainingText] string content)
         {
             await context.Message.DeleteAsync();
-            await context.SendFilteredEmbedMessageAsync(content);
+            await context.SendJsonEmbedMessageAsync(content);
         }
 
         [Command("Embed")]
@@ -58,7 +58,7 @@ namespace Defcon.Modules.Miscellaneous
         {
             await context.Message.DeleteAsync();
             var message = await context.Channel.GetMessageAsync(messageId);
-            await message.SendFilteredEmbedMessageAsync(content);
+            await message.EditJsonEmbedMessageAsync(content);
         }
     }
 }

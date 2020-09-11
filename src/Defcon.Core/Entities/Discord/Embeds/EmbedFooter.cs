@@ -1,8 +1,13 @@
-﻿namespace Defcon.Core.Entities.Discord.Embeds
+﻿using Newtonsoft.Json;
+
+namespace Defcon.Core.Entities.Discord.Embeds
 {
     public class EmbedFooter
     {
+        [JsonProperty("text")]
         public string Text { get; set; }
-        public string IconUrl { get; set; }
+        
+        [JsonProperty("icon")]
+        public string Icon { get; set; }
     }
 }
