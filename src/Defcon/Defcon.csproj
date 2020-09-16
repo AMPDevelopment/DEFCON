@@ -12,29 +12,30 @@
 		<StartupObject>Defcon.Program</StartupObject>
 		<AssemblyVersion>0.1.0.0</AssemblyVersion>
 		<FileVersion>0.1.0.0</FileVersion>
-		<Version>1.0.0</Version>
+		<Version>0.1.0</Version>
 		<Copyright>AMP Development</Copyright>
 		<Product>DEFCON</Product>
+		<RootNamespace>Defcon</RootNamespace>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
 		<PlatformTarget>x64</PlatformTarget>
-		<Optimize>true</Optimize>
 		<NoWarn>1701;1702</NoWarn>
 		<WarningLevel>0</WarningLevel>
 	</PropertyGroup>
 
 	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
 		<WarningLevel>0</WarningLevel>
+		<Optimize>true</Optimize>
 		<PlatformTarget>x64</PlatformTarget>
 		<NoWarn>1701;1702</NoWarn>
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="DSharpPlus" Version="4.0.0-nightly-00711" />
-		<PackageReference Include="DSharpPlus.CommandsNext" Version="4.0.0-nightly-00711" />
-		<PackageReference Include="DSharpPlus.Interactivity" Version="4.0.0-nightly-00711" />
-		<PackageReference Include="DSharpPlus.Rest" Version="4.0.0-nightly-00711" />
+		<PackageReference Include="DSharpPlus" Version="4.0.0-nightly-00720" />
+		<PackageReference Include="DSharpPlus.CommandsNext" Version="4.0.0-nightly-00720" />
+		<PackageReference Include="DSharpPlus.Interactivity" Version="4.0.0-nightly-00720" />
+		<PackageReference Include="DSharpPlus.Rest" Version="4.0.0-nightly-00720" />
 		<PackageReference Include="Magick.NET-Q8-AnyCPU" Version="7.21.1" />
 		<PackageReference Include="Microsoft.CodeAnalysis.FxCopAnalyzers" Version="3.3.0">
 			<PrivateAssets>all</PrivateAssets>
@@ -45,8 +46,9 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="morelinq" Version="3.3.2" />
+		<PackageReference Include="MySqlConnector" Version="1.0.1" />
 		<PackageReference Include="Newtonsoft.Json" Version="12.0.3" />
-		<PackageReference Include="Serilog" Version="2.9.1-dev-01172" />
+		<PackageReference Include="Serilog" Version="2.10.0-dev-01240" />
 		<PackageReference Include="Serilog.Formatting.Compact" Version="1.1.0" />
 		<PackageReference Include="Serilog.Sinks.Console" Version="4.0.0-dev-00839" />
 		<PackageReference Include="Serilog.Sinks.File" Version="4.1.0" />
@@ -57,23 +59,14 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <ProjectReference Include="..\Defcon.Core\Defcon.Core.csproj" />
 	  <ProjectReference Include="..\Defcon.Data\Defcon.Data.csproj" />
-	  <ProjectReference Include="..\Defcon.Entities\Defcon.Entities.csproj" />
+	  <ProjectReference Include="..\Defcon.Library\Defcon.Library.csproj" />
+	  <ProjectReference Include="..\Defcon.Modules\Defcon.Modules.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<Compile Update="Properties\Resources.Designer.cs">
-			<DesignTime>True</DesignTime>
-			<AutoGen>True</AutoGen>
-			<DependentUpon>Resources.resx</DependentUpon>
-		</Compile>
-	</ItemGroup>
-
-	<ItemGroup>
-		<EmbeddedResource Update="Properties\Resources.resx">
-			<Generator>ResXFileCodeGenerator</Generator>
-			<LastGenOutput>Resources.Designer.cs</LastGenOutput>
-		</EmbeddedResource>
+		<Compile Remove="ApplicationInformation.cs" />
 	</ItemGroup>
 
 </Project>

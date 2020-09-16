@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using Defcon.Common.Enums;
+using Defcon.Core.Entities.Enums;
 using Defcon.Data.Guilds;
 using Defcon.Library.Extensions;
 using Defcon.Library.Redis;

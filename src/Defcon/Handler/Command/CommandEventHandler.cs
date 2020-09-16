@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Defcon.Entities.Discord.Embeds;
+using Defcon.Core.Entities.Discord.Embeds;
 using Defcon.Library.Attributes;
 using Defcon.Library.Extensions;
 using DSharpPlus;
@@ -116,7 +116,7 @@ namespace Defcon.Handler.Command
                             Description = "Missing permissions are required to execute this command.",
                             Color = DiscordColor.IndianRed,
                             Fields = new List<EmbedField> { new EmbedField { Name = "Required Permissions", Value = requiredPermissionsDetails.ToString(), Inline = false } },
-                            Footer = new EmbedFooter { Text = $"Command: {commandName} | Requested by {user.GetUsertag()} | {user.Id}", IconUrl = user.AvatarUrl }
+                            Footer = new EmbedFooter { Text = $"Command: {commandName} | Requested by {user.GetUsertag()} | {user.Id}", Icon = user.AvatarUrl }
                         };
 
                         await context.SendEmbedMessageAsync(embed);
@@ -126,7 +126,7 @@ namespace Defcon.Handler.Command
                 if (e.Exception is CommandNotFoundException commandNotFoundException)
                 {
                     var failedCommand = commandNotFoundException.CommandName;
-                    var embed = new Embed { Title = ":no_entry: Command not found", Description = $"The command {Formatter.InlineCode(failedCommand)} does not exist.", Color = DiscordColor.Aquamarine, Footer = new EmbedFooter { Text = $"Requested on {guild.Name} | {guild.Id}", IconUrl = guild.IconUrl } };
+                    var embed = new Embed { Title = ":no_entry: Command not found", Description = $"The command {Formatter.InlineCode(failedCommand)} does not exist.", Color = DiscordColor.Aquamarine, Footer = new EmbedFooter { Text = $"Requested on {guild.Name} | {guild.Id}", Icon = guild.IconUrl } };
 
                     await guild.GetMemberAsync(user.Id)
                                .Result.SendEmbedMessageAsync(embed);
@@ -142,7 +142,7 @@ namespace Defcon.Handler.Command
                             Description = $"{argumentException.Message}",
                             Color = DiscordColor.Aquamarine,
                             Fields = new List<EmbedField> { new EmbedField { Name = "Command Example", Value = Formatter.InlineCode($"{commandName} SOON AVAILABLE") } },
-                            Footer = new EmbedFooter { Text = $"Requested on {guild.Name} | {guild.Id}", IconUrl = guild.IconUrl }
+                            Footer = new EmbedFooter { Text = $"Requested on {guild.Name} | {guild.Id}", Icon = guild.IconUrl }
                         };
 
                         await guild.GetMemberAsync(user.Id)
@@ -151,7 +151,7 @@ namespace Defcon.Handler.Command
 
                     if (e.Exception is InvalidOperationException invalidOperationException)
                     {
-                        var embed = new Embed { Title = ":no_entry: Invalid Operation", Description = $"{invalidOperationException.Message}", Color = DiscordColor.Aquamarine, Footer = new EmbedFooter { Text = $"Requested on {guild.Name} | {guild.Id}", IconUrl = guild.IconUrl } };
+                        var embed = new Embed { Title = ":no_entry: Invalid Operation", Description = $"{invalidOperationException.Message}", Color = DiscordColor.Aquamarine, Footer = new EmbedFooter { Text = $"Requested on {guild.Name} | {guild.Id}", Icon = guild.IconUrl } };
 
                         await guild.GetMemberAsync(user.Id)
                                    .Result.SendEmbedMessageAsync(embed);
