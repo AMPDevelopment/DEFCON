@@ -1,11 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
-using Defcon.Entities.Discord.Embeds;
+using Defcon.Core.Entities.Discord.Embeds;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.Entities;
 using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace Defcon.Library.Extensions
 {
@@ -47,7 +45,11 @@ namespace Defcon.Library.Extensions
 
         public static DiscordEmbedBuilder AddRequestedByFooter(this DiscordEmbedBuilder embed, DiscordUser user)
         {
-            embed.Footer = new DiscordEmbedBuilder.EmbedFooter {Text = $"Requested by {user.GetUsertag()} | {user.Id}", IconUrl = user.AvatarUrl};
+            embed.Footer = new DiscordEmbedBuilder.EmbedFooter
+            {
+                Text = $"Requested by {user.GetUsertag()} | {user.Id}", 
+                IconUrl = user.AvatarUrl
+            };
 
             return embed;
         }
@@ -60,17 +62,17 @@ namespace Defcon.Library.Extensions
                 Description = !string.IsNullOrWhiteSpace(embed.Description) ? embed.Description : null,
                 Url = !string.IsNullOrWhiteSpace(embed.Url) ? embed.Url : null,
                 Color = embed.Color,
-                ImageUrl = !string.IsNullOrWhiteSpace(embed.ImageUrl) ? embed.ImageUrl : null,
-                Thumbnail = new DiscordEmbedBuilder.EmbedThumbnail()
+                ImageUrl = !string.IsNullOrWhiteSpace(embed.Image) ? embed.Image : null,
+                Thumbnail = new DiscordEmbedBuilder.EmbedThumbnail
                 {
-                    Url = !string.IsNullOrWhiteSpace(embed.ThumbnailUrl) ? embed.ThumbnailUrl : null
+                    Url = !string.IsNullOrWhiteSpace(embed.Thumbnail) ? embed.Thumbnail : null
                 },
                 Timestamp = DateTimeOffset.UtcNow
             };
 
             if (embed.Author != null)
             {
-                embedBuilder.WithAuthor(embed.Author.Name, embed.Author.Url, embed.Author.IconUrl);
+                embedBuilder.WithAuthor(embed.Author.Name, embed.Author.Url, embed.Author.Icon);
             }
 
             if (embed.Fields != null)
@@ -81,13 +83,13 @@ namespace Defcon.Library.Extensions
                 }
             }
 
-            if (embedFooterStyle != EmbedFooterStyle.None)
+            if (embed.Footer != null)
             {
-                if (embed.Footer != null)
-                {
-                    embedBuilder.WithFooter(embed.Footer.Text, embed.Footer.IconUrl);
-                }
-                else
+                embedBuilder.WithFooter(embed.Footer.Text, embed.Footer.Icon);
+            }
+            else
+            {
+                if (embedFooterStyle == EmbedFooterStyle.Default)
                 {
                     if (user != null)
                     {

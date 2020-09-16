@@ -17,7 +17,7 @@ namespace Defcon.Library.Formatters
     {
         private readonly DiscordEmbedBuilder embed;
         private Command Command { get; set; }
-        private CommandContext Context { get; set; }
+        private new CommandContext Context { get; set; }
         private string Title { get; set; }
 
         public HelpFormatter(CommandContext context)

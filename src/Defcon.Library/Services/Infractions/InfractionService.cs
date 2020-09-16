@@ -4,7 +4,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Defcon.Data.Guilds;
 using Defcon.Data.Users;
-using Defcon.Entities.Discord.Embeds;
+using Defcon.Core.Entities.Discord.Embeds;
 using Defcon.Library.Converters;
 using Defcon.Library.Extensions;
 using Defcon.Library.Redis;
@@ -152,7 +152,7 @@ namespace Defcon.Library.Services.Infractions
                     var embed = new Embed()
                     {
                         Title = "Infraction list",
-                        ThumbnailUrl = suspect.AvatarUrl,
+                        Thumbnail = suspect.AvatarUrl,
                         Description = $"{Formatter.Bold("Suspect:")} {suspect.GetUsertag()} {Formatter.InlineCode($"{suspect.Id}")}\n{Formatter.Bold($"Total infractions:")} {userData.Infractions.Count}",
                         Fields = fields
                     };

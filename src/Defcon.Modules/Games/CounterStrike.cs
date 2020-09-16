@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Defcon.Entities.Discord.Embeds;
+using Defcon.Core.Entities.Discord.Embeds;
 using Defcon.Library.Attributes;
 using Defcon.Library.Extensions;
 using DSharpPlus;
@@ -42,10 +42,10 @@ namespace Defcon.Modules.Games
                     Author = new EmbedAuthor()
                     {
                         Name = steamUser.PersonaName,
-                        IconUrl = steamUser.AvatarFullUrl,
+                        Icon = steamUser.AvatarFullUrl,
                         Url = steamUser.ProfileUrl
                     },
-                    ThumbnailUrl = steamUser.AvatarFullUrl,
+                    Thumbnail = steamUser.AvatarFullUrl,
                     Description = "Nothing"
                 };
 

@@ -2,7 +2,31 @@
 
     <PropertyGroup>
         <TargetFramework>netcoreapp3.1</TargetFramework>
-        <RootNamespace>DEFCON.Library</RootNamespace>
+        <Authors>Antoine Martins Pacheco</Authors>
+        <Company>AMP Development</Company>
+        <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+        <RepositoryUrl>https://github.com/AMPDevelopment/DEFCON</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <AssemblyVersion>0.1.0.0</AssemblyVersion>
+        <FileVersion>0.1.0.0</FileVersion>
+        <Version>0.1.0</Version>
+        <Copyright>AMP Development</Copyright>
+        <Product>DEFCON</Product>
+        <RootNamespace>Defcon.Library</RootNamespace>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+        <PlatformTarget>x64</PlatformTarget>
+        <Optimize>true</Optimize>
+        <NoWarn>1701;1702</NoWarn>
+        <WarningLevel>0</WarningLevel>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+        <WarningLevel>0</WarningLevel>
+        <PlatformTarget>x64</PlatformTarget>
+        <NoWarn>1701;1702;CS1998</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

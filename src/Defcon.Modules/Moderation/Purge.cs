@@ -59,7 +59,7 @@ namespace Defcon.Modules.Moderation
                 var messages = context.Channel.GetMessagesBeforeAsync(context.Message.Id, amount)
                                       .Result.Where(x => x.Author == user)
                                       .ToList();
-                context.Channel.BulkMessagesAsync(messages, reason);
+                await context.Channel.BulkMessagesAsync(messages, reason);
 
                 var actuallyAmount = messages.Count;
 

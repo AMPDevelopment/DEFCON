@@ -3,7 +3,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Defcon.Data.Users;
-using Defcon.Entities.Discord.Embeds;
+using Defcon.Core.Entities.Discord.Embeds;
 using Defcon.Library.Attributes;
 using Defcon.Library.Extensions;
 using Defcon.Library.Redis;
@@ -46,7 +46,7 @@ namespace Defcon.Modules.Information
             var nickname = string.IsNullOrWhiteSpace(member.Nickname) ? string.Empty : $"({member.Nickname})";
             var owners = context.Client.CurrentApplication.Owners;
 
-            var author = new EmbedAuthor { Name = $"{member.GetUsertag()} {nickname}", IconUrl = member.AvatarUrl };
+            var author = new EmbedAuthor { Name = $"{member.GetUsertag()} {nickname}", Icon = member.AvatarUrl };
 
             var description = new StringBuilder();
 
@@ -130,7 +130,7 @@ namespace Defcon.Modules.Information
             var embed = new Embed
             {
                 Description = description.ToString(),
-                ThumbnailUrl = member.AvatarUrl,
+                Thumbnail = member.AvatarUrl,
                 Author = author,
                 Fields = fields
             };

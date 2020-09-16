@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using DSharpPlus;
 using DSharpPlus.Entities;
+using MoreLinq.Experimental;
 
 namespace Defcon.Library.Extensions
 {

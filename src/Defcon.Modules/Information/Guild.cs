@@ -2,7 +2,7 @@
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Defcon.Entities.Discord.Embeds;
+using Defcon.Core.Entities.Discord.Embeds;
 using Defcon.Library.Attributes;
 using Defcon.Library.Extensions;
 using Defcon.Library.Redis;
@@ -42,7 +42,7 @@ namespace Defcon.Modules.Information
             var owner = guild.Owner;
             var prefix = redis.GetAsync<Defcon.Data.Guilds.Guild>(RedisKeyNaming.Guild(context.Guild.Id)).GetAwaiter().GetResult().Prefix;
 
-            var guildAuthor = new EmbedAuthor { Name = guild.Name, IconUrl = guild.IconUrl };
+            var guildAuthor = new EmbedAuthor { Name = guild.Name, Icon = guild.IconUrl };
 
             var ownerDetails = new StringBuilder()
                               .AppendLine($"Username: {owner.Mention} {Formatter.InlineCode(owner.GetUsertag())}")
@@ -119,7 +119,7 @@ namespace Defcon.Modules.Information
                              .AppendLine($"Created at: {await guild.CreatedAtLongDateTimeString()} ({guildSinceDays})")
                              .AppendLine($"Server Prefix: {Formatter.InlineCode(prefix)}")
                              .ToString(),
-                ThumbnailUrl = guild.IconUrl,
+                Thumbnail = guild.IconUrl,
                 Author = guildAuthor,
                 Fields = fields
             };

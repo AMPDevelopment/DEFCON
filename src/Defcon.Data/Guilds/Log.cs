@@ -1,4 +1,4 @@
-﻿using Defcon.Common.Enums;
+﻿using Defcon.Core.Entities.Enums;
 
 namespace Defcon.Data.Guilds
 {

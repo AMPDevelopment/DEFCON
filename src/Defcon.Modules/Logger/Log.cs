@@ -1,5 +1,5 @@
 ﻿using System.Threading.Tasks;
-using Defcon.Common.Enums;
+using Defcon.Core.Entities.Enums;
 using Defcon.Library.Services.Logs;
 using DSharpPlus;
 using DSharpPlus.CommandsNext;

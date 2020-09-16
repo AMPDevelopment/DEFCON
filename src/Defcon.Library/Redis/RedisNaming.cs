@@ -7,5 +7,7 @@
         public static string Guild(ulong guildId) => $"Guilds:{guildId}";
 
         public static string User(ulong userId) => $"Users:{userId}";
+
+        public static string SyncedInfractions => $"SyncedInfractions";
     }
 }

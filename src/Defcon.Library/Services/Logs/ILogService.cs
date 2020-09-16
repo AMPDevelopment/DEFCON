@@ -1,5 +1,5 @@
 ﻿using System.Threading.Tasks;
-using Defcon.Common.Enums;
+using Defcon.Core.Entities.Enums;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.Entities;
 

@@ -1,6 +1,6 @@
 ﻿using System.Text;
 using System.Threading.Tasks;
-using Defcon.Entities.Discord.Embeds;
+using Defcon.Core.Entities.Discord.Embeds;
 using Defcon.Library.Attributes;
 using Defcon.Library.Extensions;
 using DSharpPlus;
@@ -39,9 +39,9 @@ namespace Defcon.Modules.Information
                 Author = new EmbedAuthor()
                 {
                     Name = user.GetUsertag(),
-                    IconUrl = user.AvatarUrl
+                    Icon = user.AvatarUrl
                 },
-                ThumbnailUrl = user.AvatarUrl,
+                Thumbnail = user.AvatarUrl,
                 Description = description
             };
 

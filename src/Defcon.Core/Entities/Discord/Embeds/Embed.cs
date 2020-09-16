@@ -24,9 +24,11 @@ namespace Defcon.Core.Entities.Discord.Embeds
         {
             get
             {
-                embedColor ??= !string.IsNullOrWhiteSpace(color) ? ConvertHex(color) : DiscordColor.None;
+                if (embedColor.HasValue) return embedColor.GetValueOrDefault();
+                
+                embedColor = string.IsNullOrWhiteSpace(color) ? DiscordColor.None : new DiscordColor(color);
+                return embedColor.GetValueOrDefault();
 
-                return embedColor.Value;
             }
             set => embedColor = value;
         }

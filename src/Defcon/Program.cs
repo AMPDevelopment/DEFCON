@@ -22,7 +22,6 @@ using DSharpPlus.Interactivity;
 using DSharpPlus.Interactivity.Enums;
 using ImageMagick;
 using Microsoft.Extensions.DependencyInjection;
-using MySqlConnector;
 using Serilog;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 using StackExchange.Redis.Extensions.Newtonsoft;
@@ -149,9 +148,8 @@ namespace Defcon
                 LogTimestampFormat = "dd-MM-yyyy HH:mm",
                 AutoReconnect = true,
                 MessageCacheSize = 4096,
-                ReconnectIndefinitely = true,
                 HttpTimeout = Timeout.InfiniteTimeSpan,
-                GatewayCompressionLevel = GatewayCompressionLevel.Payload
+                GatewayCompressionLevel = GatewayCompressionLevel.Stream
             });
 
             logger.Information("Successfully setup the client.");

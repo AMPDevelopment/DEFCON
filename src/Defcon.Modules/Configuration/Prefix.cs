@@ -1,5 +1,5 @@
 ﻿using System.Threading.Tasks;
-using Defcon.Entities.Discord.Embeds;
+using Defcon.Core.Entities.Discord.Embeds;
 using Defcon.Library.Extensions;
 using Defcon.Library.Redis;
 using DSharpPlus;

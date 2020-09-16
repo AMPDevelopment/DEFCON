@@ -3,9 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using Defcon.Common.Enums;
+using Defcon.Core.Entities.Enums;
 using Defcon.Data.Guilds;
-using Defcon.Entities.Discord.Embeds;
+using Defcon.Core.Entities.Discord.Embeds;
 using Defcon.Library.Extensions;
 using Defcon.Library.Redis;
 using DSharpPlus;
@@ -193,7 +193,7 @@ namespace Defcon.Library.Services.Logs
                                                                .AppendLine($"Registered: {memberAddEventArgs.Member.CreatedAtLongDateTimeString().Result}")
                                                                .ToString();
                         embed.Color = DiscordColor.SpringGreen;
-                        embed.ThumbnailUrl = memberAddEventArgs.Member.AvatarUrl;
+                        embed.Thumbnail = memberAddEventArgs.Member.AvatarUrl;
                     }
                     else if (eventArgs is GuildMemberUpdateEventArgs guildMemberUpdateEventArgs)
                     {
@@ -206,7 +206,7 @@ namespace Defcon.Library.Services.Logs
                                                                .AppendLine($"Identity: {Formatter.InlineCode($"{guildMemberUpdateEventArgs.Member.Id}")}")
                                                                .ToString();
                         embed.Color = DiscordColor.CornflowerBlue;
-                        embed.ThumbnailUrl = guildMemberUpdateEventArgs.Member.AvatarUrl;
+                        embed.Thumbnail = guildMemberUpdateEventArgs.Member.AvatarUrl;
                         embed.Fields = new List<EmbedField>
                         {
                             new EmbedField {Inline = false, Name = "Before", Value = before},
@@ -227,7 +227,7 @@ namespace Defcon.Library.Services.Logs
                                                                .AppendLine($"User identity: `{guildMemberRemoveEventArgs.Member.Id}`")
                                                                .ToString();
                         embed.Color = DiscordColor.IndianRed;
-                        embed.ThumbnailUrl = guildMemberRemoveEventArgs.Member.AvatarUrl;
+                        embed.Thumbnail = guildMemberRemoveEventArgs.Member.AvatarUrl;
                         embed.Fields = new List<EmbedField> { new EmbedField { Inline = false, Name = "Roles", Value = roles } };
                     }
                     else if (eventArgs is GuildBanAddEventArgs guildBanAddEventArgs)
@@ -265,7 +265,7 @@ namespace Defcon.Library.Services.Logs
                         embed.Description = new StringBuilder().AppendLine($"Message ({messageUpdateEventArgs.Message.Id}) updated in {messageUpdateEventArgs.Channel.Mention}.")
                                                                .ToString();
                         embed.Color = DiscordColor.CornflowerBlue;
-                        embed.ThumbnailUrl = messageUpdateEventArgs.Author.AvatarUrl;
+                        embed.Thumbnail = messageUpdateEventArgs.Author.AvatarUrl;
                         embed.Fields = fields;
                         embed.Footer = new EmbedFooter { Text = $"Author: {messageUpdateEventArgs.Author.Id} | Message Id: {messageUpdateEventArgs.Message.Id}" };
                     }
@@ -304,7 +304,7 @@ namespace Defcon.Library.Services.Logs
                         embed.Description = new StringBuilder().AppendLine($"Message ({messageDeleteEventArgs.Message.Id}) deleted in {messageDeleteEventArgs.Channel.Mention}.")
                                                                .ToString();
                         embed.Color = DiscordColor.IndianRed;
-                        embed.ThumbnailUrl = thumbnailUrl;
+                        embed.Thumbnail = thumbnailUrl;
                         embed.Fields = fields;
                     }
                     else if (eventArgs is MessageBulkDeleteEventArgs messageBulkDeleteEventArgs)
@@ -427,7 +427,7 @@ namespace Defcon.Library.Services.Logs
                             logger.Information($"Member '{voiceStateUpdateEventArgs.User.GetUsertag()}' ({voiceStateUpdateEventArgs.User.Id}) connected to the channel '{afterChannel.Name}' ({afterChannel.Id}) on the guild '{voiceStateUpdateEventArgs.Guild.Name}' ({voiceStateUpdateEventArgs.Guild.Id}).");
                         }
 
-                        embed.ThumbnailUrl = voiceStateUpdateEventArgs.User.AvatarUrl;
+                        embed.Thumbnail = voiceStateUpdateEventArgs.User.AvatarUrl;
                         embed.Footer = new EmbedFooter()
                         {
                             Text = $"Member: {voiceStateUpdateEventArgs.User.GetUsertag()} | {voiceStateUpdateEventArgs.User.Id}"

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
 using Defcon.Core;
-using Defcon.Entities.Discord.Embeds;
+using Defcon.Core.Entities.Discord.Embeds;
 using Defcon.Library.Attributes;
 using Defcon.Library.Extensions;
 using DSharpPlus;
@@ -69,7 +69,7 @@ namespace Defcon.Modules.Information
             {
                 Title = "About",
                 Description = description,
-                ThumbnailUrl = context.Client.CurrentUser.AvatarUrl,
+                Thumbnail = context.Client.CurrentUser.AvatarUrl,
                 Fields = fields
             };
 
