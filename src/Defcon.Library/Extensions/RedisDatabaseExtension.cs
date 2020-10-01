@@ -30,7 +30,7 @@ namespace Defcon.Library.Extensions
                 InfractionId = 0
             };
                     
-            await redis.AddAsync(RedisKeyNaming.User(userId), user);
+            await redis.AddAsync<User>(RedisKeyNaming.User(userId), user);
 
             return user;
         }
@@ -54,57 +54,58 @@ namespace Defcon.Library.Extensions
             return isModerator;
         }
 
-        public static async Task InitGuild(this IRedisDatabase redis, ulong guildId)
+        public static async Task<Guild> InitGuild(this IRedisDatabase redis, ulong guildId)
         {
             var guild = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(guildId));
 
-            if (guild == null)
+            if (guild != null) return guild;
+
+            guild = new Guild
             {
-                await redis.AddAsync<Guild>(RedisKeyNaming.Guild(guildId), new Guild()
-                {
-                    Id = guildId,
-                    Prefix = ApplicationInformation.DefaultPrefix,
-                    ModeratorRoleIds = new List<ulong>(),
-                    AllowWarnModerators = false,
-                    AllowMuteModerators = false,
-                    RulesAgreement = new RulesAgreement(),
-                    Logs = new List<Log>(),
-                    Settings = new List<Setting>(),
-                    ReactionCategories = new List<ReactionCategory>(),
-                    ReactionMessages = new List<ReactionMessage>()
-                });
-            }
-            else
+                Id = guildId,
+                Prefix = ApplicationInformation.DefaultPrefix,
+                ModeratorRoleIds = new List<ulong>(),
+                AllowWarnModerators = false,
+                AllowMuteModerators = false,
+                RulesAgreement = new RulesAgreement(),
+                Logs = new List<Log>(),
+                Settings = new List<Setting>(),
+                ReactionCategories = new List<ReactionCategory>(),
+                ReactionMessages = new List<ReactionMessage>()
+            };
+            
+            await redis.AddAsync<Guild>(RedisKeyNaming.Guild(guildId), guild);
+            
+            if (string.IsNullOrWhiteSpace(guild.Prefix))
             {
-                if (string.IsNullOrWhiteSpace(guild.Prefix))
-                {
-                    guild.Prefix = ApplicationInformation.DefaultPrefix;
-                }
-
-                guild.ModeratorRoleIds ??= new List<ulong>();
-
-                if (guild.AllowWarnModerators != true && guild.AllowWarnModerators != false)
-                {
-                    guild.AllowWarnModerators = false;
-                }
-
-                if (guild.AllowMuteModerators != true && guild.AllowMuteModerators != false)
-                {
-                    guild.AllowMuteModerators = false;
-                }
-
-                guild.RulesAgreement ??= new RulesAgreement()
-                {
-                    MessageId = ulong.MinValue,
-                    RoleId = ulong.MinValue
-                };
-                guild.Logs ??= new List<Log>();
-                guild.Settings ??= new List<Setting>();
-                guild.ReactionCategories ??= new List<ReactionCategory>();
-                guild.ReactionMessages ??= new List<ReactionMessage>();
-
-                await redis.ReplaceAsync<Guild>(RedisKeyNaming.Guild(guildId), guild);
+                guild.Prefix = ApplicationInformation.DefaultPrefix;
             }
+
+            guild.ModeratorRoleIds ??= new List<ulong>();
+
+            if (guild.AllowWarnModerators != true && guild.AllowWarnModerators != false)
+            {
+                guild.AllowWarnModerators = false;
+            }
+
+            if (guild.AllowMuteModerators != true && guild.AllowMuteModerators != false)
+            {
+                guild.AllowMuteModerators = false;
+            }
+
+            guild.RulesAgreement ??= new RulesAgreement()
+            {
+                MessageId = ulong.MinValue,
+                RoleId = ulong.MinValue
+            };
+            guild.Logs ??= new List<Log>();
+            guild.Settings ??= new List<Setting>();
+            guild.ReactionCategories ??= new List<ReactionCategory>();
+            guild.ReactionMessages ??= new List<ReactionMessage>();
+
+            await redis.ReplaceAsync<Guild>(RedisKeyNaming.Guild(guildId), guild);
+
+            return guild;
         }
     }
 }

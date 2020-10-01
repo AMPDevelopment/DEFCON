@@ -8,6 +8,7 @@ namespace Defcon.Library.Services.Infractions
     public interface IInfractionService
     {
         Task CreateInfraction(DiscordGuild guild, DiscordChannel channel, DiscordClient client, DiscordMember moderator, DiscordMember suspect, string reason, InfractionType infractionType);
+        Task ManageModerators(DiscordGuild guild, DiscordChannel channel, DiscordRole role, bool isAdd);
         Task ViewInfractions(DiscordGuild guild, DiscordChannel channel, DiscordMember suspect);
     }
 }

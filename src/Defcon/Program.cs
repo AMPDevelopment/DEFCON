@@ -25,7 +25,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 using StackExchange.Redis.Extensions.Newtonsoft;
-using SteamCSharp;
 
 namespace Defcon
 {
@@ -44,7 +43,6 @@ namespace Defcon
         private IServiceProvider serviceProvider;
         private IServiceCollection services;
         private Config config;
-        private Steam steam;
 
         public static void Main(string[] args)
         {
@@ -70,12 +68,12 @@ namespace Defcon
         {
             this.args = args;
             this.logger = logger;
+            
             this.logger.Information("Initializing the setup...");
-            await Setup()
-               .ConfigureAwait(true);
+            await Setup().ConfigureAwait(true);
+            
             this.logger.Information("Initializing the login...");
-            await Login()
-               .ConfigureAwait(true);
+            await Login().ConfigureAwait(true);
             await Task.Delay(Timeout.Infinite)
                       .ConfigureAwait(true);
         }
@@ -85,7 +83,6 @@ namespace Defcon
             var redisSetup = new Setup(logger);
 
             logger.Information("Initializing the services setup...");
-            steam = new Steam("");
             services = new ServiceCollection().AddStackExchangeRedisExtensions<NewtonsoftSerializer>(redisSetup.RedisConfiguration);
 
             serviceProvider = services.BuildServiceProvider();
@@ -95,7 +92,6 @@ namespace Defcon
             infractionService = new InfractionService(logger, redis);
             logService = new LogService(logger, redis);
             services.AddSingleton(logger)
-                    .AddSingleton(steam)
                     .AddSingleton(reactionService)
                     .AddSingleton(infractionService)
                     .AddSingleton(logService)

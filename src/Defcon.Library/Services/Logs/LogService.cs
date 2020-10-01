@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Defcon.Core.Entities.Enums;
 using Defcon.Data.Guilds;
 using Defcon.Core.Entities.Discord.Embeds;
+using Defcon.Data.Users;
 using Defcon.Library.Extensions;
 using Defcon.Library.Redis;
 using DSharpPlus;
@@ -221,22 +222,69 @@ namespace Defcon.Library.Services.Logs
                                                         .OrderByDescending(r => r.Position)
                                                         .Aggregate("", (current, x) => current + $"{x.Mention} ")
                             : "None";
+                        var description = new StringBuilder().AppendLine($"Username: `{guildMemberRemoveEventArgs.Member.GetUsertag()}`")
+                            .AppendLine($"User identity: `{guildMemberRemoveEventArgs.Member.Id}`");
+                        
+                        var userData = await redis.GetAsync<User>(RedisKeyNaming.User(guildMemberRemoveEventArgs.Member.Id));
+                        var status = "left";
+                        var reason = "unknown";
+                        var moderator = string.Empty;
+
+                        switch (logType)
+                        {
+                            case LogType.Ban:
+                            {
+                                var infraction = userData.Infractions.Last(x => x.InfractionType == InfractionType.Ban && x.GuildId == guildMemberRemoveEventArgs.Guild.Id);
+                                moderator = $"{infraction.ModeratorUsername} {Formatter.InlineCode($"{infraction.ModeratorId}")}";
+                                status = "banned";
+                                reason = infraction.Reason;
+                                break;
+                            }
+                            case LogType.Kick:
+                            {
+                                var infraction = userData.Infractions.Last(x => x.InfractionType == InfractionType.Kick && x.GuildId == guildMemberRemoveEventArgs.Guild.Id);
+                                moderator = $"{infraction.ModeratorUsername} {Formatter.InlineCode($"{infraction.ModeratorId}")}";
+                                status = "kicked";
+                                reason = infraction.Reason;
+                                break;
+                            }
+                        }
+
+                        description.AppendLine($"Status: {status}");
+
+                        if (!string.IsNullOrWhiteSpace(moderator))
+                        {
+                            description.AppendLine($"Moderator: {moderator}");
+                        }
+
+                        description.AppendLine($"Reason: {reason}");
 
                         embed.Title = $"{DiscordEmoji.FromGuildEmote(guildMemberRemoveEventArgs.Client, EmojiLibrary.Left)} Member left";
-                        embed.Description = new StringBuilder().AppendLine($"Username: `{guildMemberRemoveEventArgs.Member.GetUsertag()}`")
-                                                               .AppendLine($"User identity: `{guildMemberRemoveEventArgs.Member.Id}`")
-                                                               .ToString();
-                        embed.Color = DiscordColor.IndianRed;
+                        embed.Description = description.ToString();
+
+                        switch (logType)
+                        {
+                            case LogType.JoinedLeft:
+                                embed.Color = DiscordColor.Gray;
+                                break;
+                            case LogType.Ban:
+                                embed.Color = DiscordColor.IndianRed;
+                                break;
+                            case LogType.Kick:
+                                embed.Color = DiscordColor.Yellow;
+                                break;
+                        }
+
                         embed.Thumbnail = guildMemberRemoveEventArgs.Member.AvatarUrl;
                         embed.Fields = new List<EmbedField> { new EmbedField { Inline = false, Name = "Roles", Value = roles } };
                     }
                     else if (eventArgs is GuildBanAddEventArgs guildBanAddEventArgs)
                     {
-
+                        // Currently handled in GuildMemberRemovedEventArgs
                     }
                     else if (eventArgs is GuildBanRemoveEventArgs guildBanRemoveEventArgs)
                     {
-
+                        
                     }
                     else if (eventArgs is MessageUpdateEventArgs messageUpdateEventArgs)
                     {
@@ -444,7 +492,7 @@ namespace Defcon.Library.Services.Logs
             }
         }
 
-        private async Task<string> SetLogTypeGetLogLabel(LogType logType)
+        private static async Task<string> SetLogTypeGetLogLabel(LogType logType)
         {
             var logLabel = string.Empty;
 

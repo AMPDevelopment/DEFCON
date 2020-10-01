@@ -12,11 +12,11 @@ using DSharpPlus.CommandsNext.Attributes;
 using Serilog;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 
-namespace Defcon.Modules.Information
+namespace Defcon.Modules.Util
 {
-    [Category("Information")]
+    [Category("Tools & Utilities")]
     [Group("About")]
-    [Aliases("Kaida", "Bot")]
+    [Aliases("Defcon", "Bot")]
     [Description("Shows you details about the project.")]
     public class About : BaseCommandModule
     {

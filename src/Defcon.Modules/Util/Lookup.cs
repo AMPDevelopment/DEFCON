@@ -10,9 +10,9 @@ using DSharpPlus.Entities;
 using Serilog;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 
-namespace Defcon.Modules.Information
+namespace Defcon.Modules.Util
 {
-    [Category("Information")]
+    [Category("Tools & Utilities")]
     [Group("Lookup")]
     [Description("Shows you details about a user globally.")]
     public class Lookup : BaseCommandModule

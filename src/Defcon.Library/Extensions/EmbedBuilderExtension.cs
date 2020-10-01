@@ -38,7 +38,7 @@ namespace Defcon.Library.Extensions
 
         public static async Task EditJsonEmbedMessageAsync(this DiscordMessage message, string content)
         {
-            var embedBuilder = EmbedBuilder(JsonEmbedBuilder(content), message.Author);
+            var embedBuilder = EmbedBuilder(JsonEmbedBuilder(content), message.Author, EmbedFooterStyle.None);
 
             await message.ModifyAsync("", embedBuilder);
         }

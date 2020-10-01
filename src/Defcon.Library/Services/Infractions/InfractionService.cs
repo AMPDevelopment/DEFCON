@@ -31,11 +31,26 @@ namespace Defcon.Library.Services.Infractions
             var owners = client.CurrentApplication.Owners;
             var verb = infractionType.ToInfractionString().ToLowerInvariant();
             var action = infractionType.ToActionString().ToLowerInvariant();
-            var isAdministrator = moderator.PermissionsIn(channel)
-                                           .HasPermission(Permissions.Administrator);
-
-            var isSuspectAdministrator = suspect.PermissionsIn(channel)
-                                           .HasPermission(Permissions.Administrator);
+            var isAdministrator = false;
+            var isSuspectAdministrator = false;
+            
+            foreach (var role in moderator.Roles)
+            {
+                if (isAdministrator) break;
+                if (role.Permissions.HasPermission(Permissions.Administrator))
+                {
+                    isAdministrator = true;
+                }
+            }
+            
+            foreach (var role in suspect.Roles)
+            {
+                if (isSuspectAdministrator) break;
+                if (role.Permissions.HasPermission(Permissions.Administrator))
+                {
+                    isSuspectAdministrator = true;
+                }
+            }
 
             if (owners.Any(x => x.Id == suspect.Id))
             {
@@ -49,6 +64,10 @@ namespace Defcon.Library.Services.Infractions
             {
                 await channel.SendMessageAsync($"You can not {verb} yourself!");
             }
+            else if (suspect.IsOwner)
+            {
+                await channel.SendMessageAsync($"You can not {verb} the owner!");
+            }
             else if (isSuspectAdministrator)
             {
                 await channel.SendMessageAsync($"You can not {verb} a administrator!");
@@ -57,33 +76,31 @@ namespace Defcon.Library.Services.Infractions
             {
                 var guildData = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(guild.Id));
 
-                
-                if (infractionType == InfractionType.Ban || infractionType == InfractionType.Kick)
+                switch (infractionType)
                 {
-                    await channel.SendMessageAsync($"You can not {verb} a moderator!");
-                }
-                else if (infractionType == InfractionType.Warning)
-                {
-                    if (!guildData.AllowWarnModerators)
+                    case InfractionType.Ban:
+                    case InfractionType.Kick:
+                        await channel.SendMessageAsync($"You can not {verb} a moderator!");
+                        break;
+                    case InfractionType.Warning:
                     {
-                        await channel.SendMessageAsync($"You can not {verb} a moderator! [Disabled]");
+                        if (!guildData.AllowWarnModerators)
+                        {
+                            await channel.SendMessageAsync($"You can not {verb} a moderator! [Disabled]");
+                        }
+
+                        break;
+                    }
+                    case InfractionType.Mute:
+                    {
+                        if (!guildData.AllowMuteModerators)
+                        {
+                            await channel.SendMessageAsync($"You can not {verb} a moderator! [Disabled]");
+                        }
+
+                        break;
                     }
                 }
-                else if (infractionType == InfractionType.Mute)
-                {
-                    if (!guildData.AllowMuteModerators)
-                    {
-                        await channel.SendMessageAsync($"You can not {verb} a moderator! [Disabled]");
-                    }
-                }
-            }
-            else if (suspect.IsOwner)
-            {
-                await channel.SendMessageAsync($"You can not {verb} the owner!");
-            }
-            else if (suspect.Roles.Any(x => x.Permissions == Permissions.Administrator))
-            {
-                await channel.SendMessageAsync($"You can not {verb} an administrator!");
             }
             else
             {
@@ -130,6 +147,25 @@ namespace Defcon.Library.Services.Infractions
                         break;
                 }
             }
+        }
+
+        public async Task ManageModerators(DiscordGuild guild, DiscordChannel channel, DiscordRole role, bool isAdd)
+        {
+            var guildData = await redis.InitGuild(guild.Id);
+            var roleName = role.Name;
+
+            if (guildData.ModeratorRoleIds.Contains(role.Id))
+            {
+                guildData.ModeratorRoleIds.Remove(role.Id);
+                await channel.SendMessageAsync($"Removed `{roleName}` role from the moderation team of this guild.");
+            }
+            else
+            {
+                guildData.ModeratorRoleIds.Add(role.Id);
+                await channel.SendMessageAsync($"Added `{roleName}` role to the moderation team of this guild.");
+            }
+
+            await redis.ReplaceAsync<Guild>(RedisKeyNaming.Guild(guild.Id), guildData);
         }
 
         public async Task ViewInfractions(DiscordGuild guild, DiscordChannel channel, DiscordMember suspect)
