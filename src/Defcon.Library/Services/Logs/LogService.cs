@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using Defcon.Core.Entities.Enums;
@@ -12,6 +13,7 @@ using DSharpPlus;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
+using Emzi0767.Utilities;
 using Serilog;
 using StackExchange.Redis.Extensions.Core.Abstractions;
 
@@ -22,6 +24,7 @@ namespace Defcon.Library.Services.Logs
 
         private readonly ILogger logger;
         private readonly IRedisDatabase redis;
+        private static bool passInformation = true;
 
         public LogService(ILogger logger, IRedisDatabase redis)
         {
@@ -36,6 +39,7 @@ namespace Defcon.Library.Services.Logs
             var logLabel = await SetLogTypeGetLogLabel(logType);
             var guildData = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(guild.Id));
             var log = guildData.Logs.FirstOrDefault(x => x.LogType == logType);
+            var passInformation = true;
 
             DiscordChannel loggedChannel = null;
             DiscordMessage respond = null;
@@ -220,7 +224,12 @@ namespace Defcon.Library.Services.Logs
                         }
                     }
 
-                    await logChannel.SendEmbedMessageAsync(embed);
+                    if (passInformation)
+                    {
+                        await logChannel.SendEmbedMessageAsync(embed);
+                    }
+
+                    await Task.CompletedTask.ConfigureAwait(true);
                 }
                 else
                 {
@@ -232,26 +241,103 @@ namespace Defcon.Library.Services.Logs
 
         private static async Task ChannelCreate(BaseDiscordClient client, Embed embed, ChannelCreateEventArgs channelCreateEventArgs)
         {
-            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.New)} Channel created";
-            embed.Description = new StringBuilder().AppendLine($"Name: `{channelCreateEventArgs.Channel.Name}` {channelCreateEventArgs.Channel.Mention}")
-                .AppendLine($"Identity: `{channelCreateEventArgs.Channel.Id}`")
-                .AppendLine($"Type: {channelCreateEventArgs.Channel.Type.ToString()}")
-                .ToString();
+            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.New)} {channelCreateEventArgs.Channel.Type.ToString()} channel created";
+            var description = new StringBuilder()
+                .AppendLine($"{Formatter.InlineCode(channelCreateEventArgs.Channel.Name)} {channelCreateEventArgs.Channel.Mention}");
+            
+            if (string.IsNullOrWhiteSpace(channelCreateEventArgs.Channel.Topic))
+            {
+                description.AppendLine($"Topic: {channelCreateEventArgs.Channel.Topic}");
+            }
+                
+            description.AppendLine($"Identity: {Formatter.InlineCode(channelCreateEventArgs.Channel.Id.ToString())}")
+                .AppendLine($"Parent: {Formatter.InlineCode(channelCreateEventArgs.Channel.Parent.Name)}")
+                .AppendLine($"NSFW: {Formatter.InlineCode(channelCreateEventArgs.Channel.IsNSFW.ToString())}");
+            
+            if (channelCreateEventArgs.Channel.Type == ChannelType.Voice)
+            {
+                description.AppendLine($"Bitrate: {Formatter.InlineCode(channelCreateEventArgs.Channel.Bitrate.ToString())}")
+                    .AppendLine($"User Limit: {Formatter.InlineCode(channelCreateEventArgs.Channel.UserLimitToString())}");
+            }
+            
+            if (channelCreateEventArgs.Channel.Type == ChannelType.Text)
+            {
+                description.AppendLine($"Slowmode: {Formatter.InlineCode(channelCreateEventArgs.Channel.PerUserRateLimitToString())}");
+            }
+            
+            embed.Description = description.ToString();
             embed.Color = DiscordColor.SpringGreen;
         }
 
         private static async Task ChannelUpdate(BaseDiscordClient client, Embed embed, ChannelUpdateEventArgs channelUpdateEventArgs)
         {
-            if (!channelUpdateEventArgs.ChannelBefore.IsPrivate)
+            var before = channelUpdateEventArgs.ChannelBefore;
+            var after = channelUpdateEventArgs.ChannelAfter;
+            
+            if (!before.IsPrivate)
             {
-                embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Update)} Channel updated";
-                embed.Description = new StringBuilder().AppendLine(channelUpdateEventArgs.ChannelBefore.Name == channelUpdateEventArgs.ChannelAfter.Name
-                        ? $"Name: `{channelUpdateEventArgs.ChannelAfter.Name}` {channelUpdateEventArgs.ChannelAfter.Mention}"
-                        : $"Name: `{channelUpdateEventArgs.ChannelBefore.Name}` to `{channelUpdateEventArgs.ChannelAfter.Name}` {channelUpdateEventArgs.ChannelAfter.Mention}")
-                    .AppendLine($"Identity: `{channelUpdateEventArgs.ChannelAfter.Id}`")
-                    .AppendLine($"Type: {channelUpdateEventArgs.ChannelAfter.Type.ToString()}")
-                    .ToString();
-                embed.Color = DiscordColor.CornflowerBlue;
+                var nameChanged = before.Name != after.Name;
+                var topicChanged = before.Topic != after.Topic;
+                var parentChanged = before.Parent != after.Parent;
+                var isNsfwChanged = before.IsNSFW != after.IsNSFW;
+                var bitrateChanged = before.Bitrate != after.Bitrate && after.Type == ChannelType.Voice;
+                var userLimitChanged = before.UserLimit != after.UserLimit;
+                var perUserRateLimitChanged = before.PerUserRateLimit != after.PerUserRateLimit && after.Type == ChannelType.Text;
+                var channelChanged = nameChanged || 
+                                     topicChanged || 
+                                     parentChanged || 
+                                     isNsfwChanged ||
+                                     bitrateChanged || 
+                                     userLimitChanged || 
+                                     perUserRateLimitChanged;
+                
+                if (channelChanged)
+                {
+                    embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Update)} {after.Type.ToString()} channel updated";
+                    var desciprtion = new StringBuilder()
+                        .AppendLine(!nameChanged 
+                            ? $"{Formatter.InlineCode(after.Name)} {after.Mention}"
+                            : $"{Formatter.InlineCode(before.Name)} to {Formatter.InlineCode(after.Name)} {after.Mention}");
+                    
+                    if (!string.IsNullOrWhiteSpace(after.Topic))
+                    {
+                        desciprtion.AppendLine(!topicChanged
+                            ? $"Topic: {after.Topic}"
+                            : $"Topic: {after.Topic}\nTopic old: {before.Topic}");
+                    }
+                        
+                    desciprtion.AppendLine($"Identity: {Formatter.InlineCode(after.Id.ToString())}")
+                        .AppendLine(!parentChanged 
+                            ? $"Parent: {Formatter.InlineCode(after.Parent.Name)}"
+                            : $"Parent: {Formatter.Underline(before.Parent.Name)} to {Formatter.InlineCode(after.Parent.Name)}")
+                        .AppendLine(!isNsfwChanged
+                            ? $"NSFW: {Formatter.InlineCode(after.IsNSFW.ToString())}"
+                            : $"NSFW: {Formatter.InlineCode(before.IsNSFW.ToString())} to {Formatter.InlineCode(after.IsNSFW.ToString())}");
+
+                    if (after.Type == ChannelType.Voice)
+                    {
+                        desciprtion.AppendLine(!bitrateChanged
+                                ? $"Bitrate: {Formatter.InlineCode(after.Bitrate.ToString())}"
+                                : $"Bitrate: {Formatter.InlineCode(before.Bitrate.ToString())} to {Formatter.InlineCode(after.Bitrate.ToString())}")
+                            .AppendLine(!userLimitChanged
+                                ? $"User Limit: {Formatter.InlineCode(after.UserLimitToString())}"
+                                : $"User Limit: {Formatter.InlineCode(before.UserLimitToString())} : {Formatter.InlineCode(after.UserLimitToString())}");
+                    }
+
+                    if (after.Type == ChannelType.Text)
+                    {
+                        desciprtion.AppendLine(!perUserRateLimitChanged
+                            ? $"Slowmode: {Formatter.InlineCode(after.PerUserRateLimitToString())}"
+                            : $"Slowmode: {Formatter.InlineCode(before.PerUserRateLimitToString())} to {Formatter.InlineCode(after.PerUserRateLimitToString())}");
+                    }
+
+                    embed.Description = desciprtion.ToString();
+                    embed.Color = DiscordColor.CornflowerBlue;
+                }
+                else
+                {
+                    passInformation = false;
+                }
             }
         }
 
@@ -266,10 +352,9 @@ namespace Defcon.Library.Services.Logs
 
             if (!channelDeleteEventArgs.Channel.IsPrivate)
             {
-                embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Erase)} Channel deleted";
-                embed.Description = new StringBuilder().AppendLine($"Name: `{channelDeleteEventArgs.Channel.Name}`")
-                    .AppendLine($"Identity: `{channelDeleteEventArgs.Channel.Id}`")
-                    .AppendLine($"Type: {channelDeleteEventArgs.Channel.Type.ToString()}")
+                embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Erase)} {channelDeleteEventArgs.Channel.Type.ToString()} channel deleted";
+                embed.Description = new StringBuilder().AppendLine($"Name: {Formatter.InlineCode(channelDeleteEventArgs.Channel.Name)}")
+                    .AppendLine($"Identity: {Formatter.InlineCode(channelDeleteEventArgs.Channel.Id.ToString())}")
                     .ToString();
                 embed.Color = DiscordColor.IndianRed;
             }
@@ -278,28 +363,62 @@ namespace Defcon.Library.Services.Logs
         private static async Task GuildRoleCreate(BaseDiscordClient client, Embed embed, GuildRoleCreateEventArgs guildRoleCreateEventArgs)
         {
             embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.New)} Role created";
-            embed.Description = new StringBuilder().AppendLine($"Name: `{guildRoleCreateEventArgs.Role.Name}`")
-                .AppendLine($"Identity: `{guildRoleCreateEventArgs.Role.Id}`")
+            embed.Description = new StringBuilder().AppendLine($"Name: {Formatter.InlineCode(guildRoleCreateEventArgs.Role.Name)}")
+                .AppendLine($"Identity: {Formatter.InlineCode(guildRoleCreateEventArgs.Role.Id.ToString())}")
                 .ToString();
             embed.Color = DiscordColor.SpringGreen;
         }
 
         private static async Task GuildRoleUpdate(BaseDiscordClient client, Embed embed, GuildRoleUpdateEventArgs guildRoleUpdateEventArgs)
         {
-            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Update)} Role updated";
-            embed.Description = new StringBuilder().AppendLine(guildRoleUpdateEventArgs.RoleBefore.Name == guildRoleUpdateEventArgs.RoleAfter.Name
-                    ? $"Name: `{guildRoleUpdateEventArgs.RoleAfter.Name}` {guildRoleUpdateEventArgs.RoleAfter.Mention}"
-                    : $"Name: `{guildRoleUpdateEventArgs.RoleBefore.Name}` to `{guildRoleUpdateEventArgs.RoleAfter.Name}` {guildRoleUpdateEventArgs.RoleAfter.Mention}")
-                .AppendLine($"Identity: `{guildRoleUpdateEventArgs.RoleAfter.Id}`")
-                .ToString();
-            embed.Color = DiscordColor.CornflowerBlue;
+            var before = guildRoleUpdateEventArgs.RoleBefore;
+            var after = guildRoleUpdateEventArgs.RoleAfter;
+
+            var nameChanged = before.Name != after.Name;
+            var isHoistedChanged = before.IsHoisted != after.IsHoisted;
+            var isManagedChanged = before.IsManaged != after.IsManaged;
+            var isMentionableChanged = before.IsMentionable != after.IsMentionable;
+            var permissionsChanged = before.Permissions != after.Permissions;
+
+            var permissions = permissionsChanged ? await before.Permissions.GetChangedRolesDifference(after.Permissions).ConfigureAwait(true) : string.Empty;
+
+            var roleChanged = nameChanged ||
+                              isHoistedChanged ||
+                              isManagedChanged ||
+                              isMentionableChanged ||
+                              permissionsChanged;
+            
+            if (roleChanged)
+            {
+                embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Update)} Role updated";
+                var description = new StringBuilder().AppendLine(before.Name == after.Name
+                        ? $"Name: {Formatter.InlineCode(after.Name)} {after.Mention}"
+                        : $"Name: {Formatter.InlineCode(before.Name)} to {Formatter.InlineCode(after.Name)} {after.Mention}")
+                    .AppendLine($"Identity: {Formatter.InlineCode(after.Id.ToString())}");
+
+                if (isMentionableChanged)
+                {
+                    description.AppendLine($"Mentionable: {Formatter.InlineCode(before.IsMentionable.ToString())} to {Formatter.InlineCode(after.IsMentionable.ToString())}");
+                }
+                
+                if (permissionsChanged)
+                {
+                    embed.Fields = new List<EmbedField> {new EmbedField(){Inline = false, Name = "Changed Permissions", Value = permissions}};
+                }
+                embed.Description = description.ToString();
+                embed.Color = DiscordColor.CornflowerBlue;
+            }
+            else
+            {
+                passInformation = false;
+            }
         }
 
         private static async Task GuildRoleDelete(BaseDiscordClient client, Embed embed, GuildRoleDeleteEventArgs guildRoleDeleteEventArgs)
         {
             embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Erase)} Role deleted";
-            embed.Description = new StringBuilder().AppendLine($"Name: `{guildRoleDeleteEventArgs.Role.Name}`")
-                .AppendLine($"Identity: `{guildRoleDeleteEventArgs.Role.Id}`")
+            embed.Description = new StringBuilder().AppendLine($"Name: {Formatter.InlineCode(guildRoleDeleteEventArgs.Role.Name)}")
+                .AppendLine($"Identity: {Formatter.InlineCode(guildRoleDeleteEventArgs.Role.Id.ToString())}")
                 .ToString();
             embed.Color = DiscordColor.IndianRed;
         }
@@ -307,8 +426,8 @@ namespace Defcon.Library.Services.Logs
         private static async Task GuildMemberAdd(BaseDiscordClient client, Embed embed, GuildMemberAddEventArgs memberAddEventArgs)
         {
             embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Joined)} Member joined";
-            embed.Description = new StringBuilder().AppendLine($"Username: `{memberAddEventArgs.Member.GetUsertag()}`")
-                .AppendLine($"User identity: `{memberAddEventArgs.Member.Id}`")
+            embed.Description = new StringBuilder().AppendLine($"Username: {Formatter.InlineCode(memberAddEventArgs.Member.GetUsertag())} {memberAddEventArgs.Member.Mention}")
+                .AppendLine($"Identity: {Formatter.InlineCode(memberAddEventArgs.Member.Id.ToString())}")
                 .AppendLine($"Registered: {memberAddEventArgs.Member.CreatedAtLongDateTimeString().Result}")
                 .ToString();
             embed.Color = DiscordColor.SpringGreen;
@@ -321,8 +440,7 @@ namespace Defcon.Library.Services.Logs
             var after = string.IsNullOrWhiteSpace(guildMemberUpdateEventArgs.NicknameAfter) ? guildMemberUpdateEventArgs.Member.Username : guildMemberUpdateEventArgs.NicknameAfter;
 
             embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Edit)} Nickname changed";
-            embed.Description = new StringBuilder().AppendLine($"Mention: {guildMemberUpdateEventArgs.Member.Mention}")
-                .AppendLine($"Username: {Formatter.InlineCode(guildMemberUpdateEventArgs.Member.GetUsertag())}")
+            embed.Description = new StringBuilder().AppendLine($"Username: {Formatter.InlineCode(guildMemberUpdateEventArgs.Member.GetUsertag())} {guildMemberUpdateEventArgs.Member.Mention}")
                 .AppendLine($"Identity: {Formatter.InlineCode($"{guildMemberUpdateEventArgs.Member.Id}")}")
                 .ToString();
             embed.Color = DiscordColor.CornflowerBlue;
@@ -344,8 +462,8 @@ namespace Defcon.Library.Services.Logs
                 : "None";
             
             embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Left)} Member left";
-            embed.Description = new StringBuilder().AppendLine($"Username: `{guildMemberRemoveEventArgs.Member.GetUsertag()}`")
-                .AppendLine($"User identity: `{guildMemberRemoveEventArgs.Member.Id}`").ToString();
+            embed.Description = new StringBuilder().AppendLine($"Username: {Formatter.InlineCode(guildMemberRemoveEventArgs.Member.GetUsertag())} {guildMemberRemoveEventArgs.Member.Mention}")
+                .AppendLine($"Identity: {Formatter.InlineCode(guildMemberRemoveEventArgs.Member.Id.ToString())}").ToString();
 
             embed.Color = DiscordColor.Gray;
             embed.Thumbnail = guildMemberRemoveEventArgs.Member.AvatarUrl;
@@ -361,8 +479,8 @@ namespace Defcon.Library.Services.Logs
                 : "None";
             
             embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Left)} Member banned";
-            embed.Description = new StringBuilder().AppendLine($"Username: `{guildBanAddEventArgs.Member.GetUsertag()}`")
-                .AppendLine($"User identity: `{guildBanAddEventArgs.Member.Id}`").ToString();
+            embed.Description = new StringBuilder().AppendLine($"Username: {Formatter.InlineCode(guildBanAddEventArgs.Member.GetUsertag())} {guildBanAddEventArgs.Member.Mention}")
+                .AppendLine($"Identity: {Formatter.InlineCode(guildBanAddEventArgs.Member.Id.ToString())}").ToString();
 
             embed.Color = DiscordColor.IndianRed;
             embed.Thumbnail = guildBanAddEventArgs.Member.AvatarUrl;
@@ -372,26 +490,37 @@ namespace Defcon.Library.Services.Logs
         private static async Task InviteCreate(BaseDiscordClient client, Embed embed, InviteCreateEventArgs inviteCreateEventArgs)
         {
             embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.New)} Invite created";
-            embed.Description = new StringBuilder().AppendLine($"Code: `{inviteCreateEventArgs.Invite.Code}`")
-                .AppendLine($"`{inviteCreateEventArgs.Channel.Name}` {inviteCreateEventArgs.Channel.Mention}")
-                .AppendLine($"Identity: `{inviteCreateEventArgs.Channel.Id}`")
-                .AppendLine($"Inviter: {inviteCreateEventArgs.Invite.Inviter.GetUsertag()} `{inviteCreateEventArgs.Invite.Inviter.Id}`")
-                .AppendLine($"Temporary: `{inviteCreateEventArgs.Invite.IsTemporary}`")
-                .AppendLine($"Max age: {inviteCreateEventArgs.Invite.MaxAge}")
-                .AppendLine($"Max uses: {inviteCreateEventArgs.Invite.MaxUses}")
+            var maxAge = inviteCreateEventArgs.Invite.MaxAge == 0 ? "No limit" : $"{TimeSpan.FromSeconds(inviteCreateEventArgs.Invite.MaxAge).TotalHours}h";
+            var maxUses = inviteCreateEventArgs.Invite.MaxUses == 0 ? "Unlimited" : inviteCreateEventArgs.Invite.MaxUses.ToString();
+            embed.Description = new StringBuilder().AppendLine($"Code: {Formatter.InlineCode(inviteCreateEventArgs.Invite.Code)}")
+                .AppendLine($"{Formatter.InlineCode(inviteCreateEventArgs.Channel.Name)} {inviteCreateEventArgs.Channel.Mention}")
+                .AppendLine($"Identity: {Formatter.InlineCode(inviteCreateEventArgs.Channel.Id.ToString())}")
+                .AppendLine($"Temporary: {Formatter.InlineCode(inviteCreateEventArgs.Invite.IsTemporary.ToString())}")
+                .AppendLine($"Max age: {Formatter.InlineCode(maxAge)}")
+                .AppendLine($"Max uses: {Formatter.InlineCode(maxUses)}")
                 .ToString();
+            
+            var inviter = inviteCreateEventArgs.Invite.Inviter;
+            var inviterDescription = new StringBuilder().AppendLine($"Username: {Formatter.InlineCode(inviter.GetUsertag())} {inviter.Mention}")
+                .AppendLine($"Identity: {Formatter.InlineCode(inviter.Id.ToString())}")
+                .ToString();
+            embed.Fields = new List<EmbedField> {new EmbedField {Inline = false, Name = "Inviter", Value = inviterDescription}};
             embed.Color = DiscordColor.SpringGreen;
         }
         
         private static async Task InviteDelete(BaseDiscordClient client, Embed embed, InviteDeleteEventArgs inviteDeleteEventArgs)
         {
             embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Erase)} Invite deleted";
-            embed.Description = new StringBuilder().AppendLine($"Code: `{inviteDeleteEventArgs.Invite.Code}`")
-                .AppendLine($"Created at: {inviteDeleteEventArgs.Invite.CreatedAt}")
-                .AppendLine($"`{inviteDeleteEventArgs.Channel.Name}` {inviteDeleteEventArgs.Channel.Mention}")
-                .AppendLine($"Identity: `{inviteDeleteEventArgs.Channel.Id}`")
-                .AppendLine($"Inviter: {inviteDeleteEventArgs.Invite.Inviter.GetUsertag()} `{inviteDeleteEventArgs.Invite.Inviter.Id}`")
+            embed.Description = new StringBuilder().AppendLine($"Code: {Formatter.InlineCode(inviteDeleteEventArgs.Invite.Code)}")
+                .AppendLine($"{Formatter.InlineCode(inviteDeleteEventArgs.Channel.Name)} {inviteDeleteEventArgs.Channel.Mention}")
+                .AppendLine($"Identity: {Formatter.InlineCode(inviteDeleteEventArgs.Channel.Id.ToString())}")
                 .ToString();
+            
+            var inviter = inviteDeleteEventArgs.Invite.Inviter;
+            var inviterDescription = new StringBuilder().AppendLine($"Username: {Formatter.InlineCode(inviter.GetUsertag())} {inviter.Mention}")
+                .AppendLine($"Identity: {Formatter.InlineCode(inviter.Id.ToString())}")
+                .ToString();
+            embed.Fields = new List<EmbedField> {new EmbedField {Inline = false, Name = "Inviter", Value = inviterDescription}};
             embed.Color = DiscordColor.IndianRed;
         }
 
@@ -502,8 +631,9 @@ namespace Defcon.Library.Services.Logs
                 stateChanged = true;
                 var from = before.IsSelfMuted ? acceptedEmoji : deniedEmoji;
                 var to = after.IsSelfMuted ? acceptedEmoji : deniedEmoji;
-                actionLog = $"'self muted' from {before.IsSelfMuted.ToString()} to {after.IsSelfMuted.ToString()}";
-                actionEmbed = $"{Formatter.InlineCode("Self Muted")} state has been updated from {from} to {to}";
+                var status = before.IsSelfDeafened != after.IsServerDeafened ? "Self Muted and Deafened" : "Self Muted";
+                actionLog = $"'{status.ToLower()}' from {before.IsSelfMuted.ToString()} to {after.IsSelfMuted.ToString()}";
+                actionEmbed = $"{Formatter.InlineCode(status)} state has been updated from {from} to {to}";
             }
 
             if (before.IsServerDeafened != after.IsServerDeafened)

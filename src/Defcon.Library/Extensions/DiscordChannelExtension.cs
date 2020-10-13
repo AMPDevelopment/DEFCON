@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using DSharpPlus;
@@ -80,6 +81,43 @@ namespace Defcon.Library.Extensions
         public static async Task<int> Voices(this List<DiscordChannel> channels)
         {
             return channels.Count(x => x.Type == ChannelType.Voice);
+        }
+
+        public static string UserLimitToString(this DiscordChannel channel)
+        {
+            return channel.UserLimit == 0 ? "unlimited" : $"{channel.UserLimit}";
+        }
+        
+        public static string PerUserRateLimitToString(this DiscordChannel channel)
+        {
+            var perUserRateLimit = string.Empty;
+            switch (channel.PerUserRateLimit)
+            {
+                case 0:
+                case null:
+                    perUserRateLimit = "unrestricted";
+                    break;
+                case 5:
+                case 10:
+                case 15:
+                    perUserRateLimit = $"{channel.PerUserRateLimit}s";
+                    break;
+                case 60:
+                case 120:
+                case 300:
+                case 600:
+                case 900:
+                case 1800:
+                    perUserRateLimit = $"{TimeSpan.FromSeconds((double) channel.PerUserRateLimit).Minutes}m";
+                    break;
+                case 3600:
+                case 7200:
+                case 21600:
+                    perUserRateLimit = $"{TimeSpan.FromSeconds((double) channel.PerUserRateLimit).Hours}h";
+                    break;
+            }
+
+            return perUserRateLimit;
         }
     }
 }
