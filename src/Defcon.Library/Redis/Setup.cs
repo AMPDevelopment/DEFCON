@@ -22,8 +22,8 @@ namespace Defcon.Library.Redis
             bool validInput;
             bool validRedisInstance;
 
-            logger.Information("Initializing the Redis database configuration...");
-            logger.Warning("The application does not check if the redis database instance is already in use or not!");
+            this.logger.Information("Initializing the Redis database configuration...");
+            this.logger.Warning("The application does not check if the redis database instance is already in use or not!");
 
             do
             {
@@ -33,17 +33,17 @@ namespace Defcon.Library.Redis
 
                 if (!validInput)
                 {
-                    logger.Error("Input is not an integer.");
+                    this.logger.Error("Input is not an integer.");
                 }
 
                 if (database > 15 || database < 0)
                 {
-                    logger.Error("Not a valid database instance. Redis supports only zero (0) till fifteen (15).");
+                    this.logger.Error("Not a valid database instance. Redis supports only zero (0) till fifteen (15).");
                     validRedisInstance = false;
                 }
                 else
                 {
-                    logger.Information("Valid Redis database instance.");
+                    this.logger.Information("Valid Redis database instance.");
                     validRedisInstance = true;
                 }
             } while (validInput == false || validRedisInstance == false);
@@ -69,11 +69,11 @@ namespace Defcon.Library.Redis
                     MaxValueLength = 2048
                 };
 
-                logger.Information($"Successfully setup configuration for redis database {database}.");
+                this.logger.Information($"Successfully setup configuration for redis database {database}.");
             }
             catch (Exception e)
             {
-                logger.Fatal(e, "Redis configuration failed.");
+                this.logger.Fatal(e, "Redis configuration failed.");
                 Environment.Exit(102);
             }
         }

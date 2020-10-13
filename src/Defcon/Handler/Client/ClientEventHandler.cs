@@ -10,6 +10,7 @@ using Defcon.Library.Redis;
 using Defcon.Library.Services.Logs;
 using Defcon.Library.Services.Reactions;
 using DSharpPlus;
+using DSharpPlus.CommandsNext.Exceptions;
 using DSharpPlus.Entities;
 using DSharpPlus.EventArgs;
 using DSharpPlus.Exceptions;
@@ -23,10 +24,10 @@ namespace Defcon.Handler.Client
     {
         private readonly DiscordShardedClient client;
         private readonly ILogger logger;
-        private readonly IReactionService reactionService;
         private readonly ILogService logService;
+        private readonly IReactionService reactionService;
         private readonly IRedisDatabase redis;
-        
+
         private int activityIndex;
         private Timer timer;
 
@@ -40,6 +41,7 @@ namespace Defcon.Handler.Client
 
             this.logger.Information("Register events...");
             this.client.Ready += Ready;
+            this.client.Resumed += Resumed;
             this.client.GuildDownloadCompleted += GuildDownloadCompleted;
             this.client.GuildAvailable += GuildAvailable;
             this.client.GuildUnavailable += GuildUnavailable;
@@ -57,11 +59,13 @@ namespace Defcon.Handler.Client
             this.client.GuildMemberAdded += GuildMemberAdded;
             this.client.GuildMemberRemoved += GuildMemberRemoved;
             this.client.GuildMemberUpdated += GuildMemberUpdated;
+            this.client.GuildMembersChunked += GuildMemberChunked;
             this.client.GuildBanAdded += GuildBanAdded;
             this.client.GuildBanRemoved += GuildBanRemoved;
+            this.client.InviteCreated += InviteCreated;
+            this.client.InviteDeleted += InviteDeleted;
             this.client.DmChannelCreated += DmChannelCreated;
             this.client.DmChannelDeleted += DmChannelDeleted;
-            this.client.MessageCreated += MessageCreated;
             this.client.MessageUpdated += MessageUpdated;
             this.client.MessageDeleted += MessageDeleted;
             this.client.MessagesBulkDeleted += MessagesBulkDeleted;
@@ -74,241 +78,318 @@ namespace Defcon.Handler.Client
             this.client.SocketOpened += SocketOpened;
             this.client.SocketClosed += SocketClosed;
             this.client.SocketErrored += SocketErrored;
+            this.client.WebhooksUpdated += WebhooksUpdated;
             this.client.ClientErrored += ClientErrored;
             this.client.UnknownEvent += UnknownEvent;
             this.logger.Information("Registered all events!");
         }
 
-        private async Task Ready(ReadyEventArgs e)
+        private async Task Ready(DiscordClient c, ReadyEventArgs e)
         {
-            logger.Information("Client is ready!");
-
-            timer = new Timer(async _ =>
+            Task.Run(async () =>
             {
-                var guilds = e.Client.Guilds.Values.ToList();
-                var guildsCount = guilds.Count;
-                var totalUsers = new List<DiscordUser>();
-
-                foreach (var guild in guilds)
+                this.logger.Information("Client is ready!");
+            
+                timer = new Timer(async _ =>
                 {
-                    var members = await guild.GetAllMembersAsync();
-                    totalUsers.AddRange(members.Where(x => x.IsBot == false));
+                    var guilds = c.Guilds.Values.ToList();
+                    var guildsCount = guilds.Count;
+                    var totalUsers = new List<DiscordUser>();
+
+                    foreach (var guild in guilds)
+                    {
+                        var members = await guild.GetAllMembersAsync().ConfigureAwait(true);
+                        totalUsers.AddRange(members.Where(x => x.IsBot == false));
+                    }
+
+                    var uniqueUsers = totalUsers.DistinctBy(x => x.Id)
+                        .ToList()
+                        .Count;
+
+                    var activities = new List<DiscordActivity>
+                    {
+                        new DiscordActivity {ActivityType = ActivityType.Watching, Name = $"{guildsCount} servers"},
+                        new DiscordActivity {ActivityType = ActivityType.ListeningTo, Name = $"{uniqueUsers} unique users"}
+                    };
+                    await client.UpdateStatusAsync(activities.ElementAtOrDefault(activityIndex), UserStatus.Online, DateTimeOffset.UtcNow).ConfigureAwait(true);
+                    activityIndex = activityIndex + 1 == activities.Count ? 0 : activityIndex + 1;
+                }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(60));
+            });
+        }
+
+        private async Task Resumed(DiscordClient c, ReadyEventArgs e)
+        {
+            this.logger.Information("The session has been resumed!");
+        }
+
+        private async Task GuildDownloadCompleted(DiscordClient c, GuildDownloadCompletedEventArgs e)
+        {
+            this.logger.Information("Client downloaded all guilds successfully.");
+        }
+
+        private async Task GuildAvailable(DiscordClient c, GuildCreateEventArgs e)
+        {
+            Task.Run(async () =>
+            {
+                await redis.InitGuild(e.Guild.Id).ConfigureAwait(true);
+                this.logger.Information($"Guild '{e.Guild.Name}' ({e.Guild.Id}) became available.");
+            });
+        }
+
+        private async Task GuildUnavailable(DiscordClient c, GuildDeleteEventArgs e)
+        {
+            this.logger.Information($"Guild '{e.Guild.Name}' ({e.Guild.Id}) became unavailable.");
+        }
+
+        private async Task GuildCreated(DiscordClient c, GuildCreateEventArgs e)
+        {
+            Task.Run(async () =>
+            {
+                await redis.InitGuild(e.Guild.Id).ConfigureAwait(true);
+                this.logger.Information($"Joined the guild '{e.Guild.Name}' ({e.Guild.Id}).");
+            });
+        }
+
+        private async Task GuildUpdated(DiscordClient c, GuildUpdateEventArgs e)
+        {
+            this.logger.Information($"Guild '{e.GuildAfter.Name}' ({e.GuildAfter.Id}) has been updated.");
+        }
+
+        private async Task GuildDeleted(DiscordClient c, GuildDeleteEventArgs e)
+        {
+            this.logger.Information($"Left the guild '{e.Guild.Name}' ({e.Guild.Id}).");
+        }
+
+        private async Task GuildEmojisUpdated(DiscordClient c, GuildEmojisUpdateEventArgs e)
+        {
+            this.logger.Information($"Guild '{e.Guild.Name}' ({e.Guild.Id}) has updated their emojis.");
+        }
+
+        private async Task GuildIntegrationsUpdated(DiscordClient c, GuildIntegrationsUpdateEventArgs e)
+        {
+            this.logger.Information($"Guild '{e.Guild.Name}' ({e.Guild.Id}) has updated their integrations.");
+        }
+
+        private async Task ChannelCreated(DiscordClient c, ChannelCreateEventArgs e)
+        {
+            Task.Run(async () =>
+            {
+                await logService.GuildLogger(c, e.Guild, e, LogType.Guild).ConfigureAwait(true);
+                this.logger.Information($"Channel '{e.Channel.Name}' ({e.Channel.Id}) has been created on guild '{e.Guild.Name}' ({e.Guild.Id}).");
+            });
+        }
+
+        private async Task ChannelUpdated(DiscordClient c, ChannelUpdateEventArgs e)
+        {
+            Task.Run(async () =>
+            {
+                if (!e.ChannelBefore.IsPrivate)
+                {
+                    await logService.GuildLogger(c, e.Guild, e, LogType.Guild).ConfigureAwait(true);
+                    this.logger.Information($"Channel '{e.ChannelAfter.Name}' ({e.ChannelAfter.Id}) has been updated on guild '{e.Guild.Name}' ({e.Guild.Id}).");
                 }
+            });
+        }
 
-                var uniqueUsers = totalUsers.DistinctBy(x => x.Id)
-                                            .ToList()
-                                            .Count;
-
-                var activities = new List<DiscordActivity>
+        private async Task ChannelDeleted(DiscordClient c, ChannelDeleteEventArgs e)
+        {
+            Task.Run(async () =>
+            {
+                if (!e.Channel.IsPrivate)
                 {
-                    new DiscordActivity {ActivityType = ActivityType.Watching, Name = $"{guildsCount} servers"},
-                    new DiscordActivity {ActivityType = ActivityType.ListeningTo, Name = $"{uniqueUsers} unique users"}
-                };
-                await client.UpdateStatusAsync(activities.ElementAtOrDefault(activityIndex), UserStatus.Online, DateTimeOffset.UtcNow);
-                activityIndex = activityIndex + 1 == activities.Count ? 0 : activityIndex + 1;
-            }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(60));
-        }
-
-        private async Task GuildDownloadCompleted(GuildDownloadCompletedEventArgs e)
-        {
-            logger.Information("Client downloaded all guilds successfully.");
-        }
-
-        private async Task GuildAvailable(GuildCreateEventArgs e)
-        {
-            await redis.InitGuild(e.Guild.Id);
-            logger.Information($"Guild '{e.Guild.Name}' ({e.Guild.Id}) became available.");
-        }
-
-        private async Task GuildUnavailable(GuildDeleteEventArgs e)
-        {
-            logger.Information($"Guild '{e.Guild.Name}' ({e.Guild.Id}) became unavailable.");
-        }
-
-        private async Task GuildCreated(GuildCreateEventArgs e)
-        {
-            await redis.InitGuild(e.Guild.Id);
-            logger.Information($"Joined the guild '{e.Guild.Name}' ({e.Guild.Id}).");
-        }
-
-        private async Task GuildUpdated(GuildUpdateEventArgs e)
-        {
-            logger.Information($"Guild '{e.GuildAfter.Name}' ({e.GuildAfter.Id}) has been updated.");
-        }
-
-        private async Task GuildDeleted(GuildDeleteEventArgs e)
-        {
-            logger.Information($"Left the guild '{e.Guild.Name}' ({e.Guild.Id}).");
-        }
-
-        private async Task GuildEmojisUpdated(GuildEmojisUpdateEventArgs e)
-        {
-            logger.Information($"Guild '{e.Guild.Name}' ({e.Guild.Id}) has updated their emojis.");
-        }
-
-        private async Task GuildIntegrationsUpdated(GuildIntegrationsUpdateEventArgs e)
-        {
-            logger.Information($"Guild '{e.Guild.Name}' ({e.Guild.Id}) has updated their integrations.");
-        }
-
-        private async Task ChannelCreated(ChannelCreateEventArgs e)
-        {
-            await logService.GuildLogger(e.Guild, e, LogType.Guild);
-
-            logger.Information($"Channel '{e.Channel.Name}' ({e.Channel.Id}) has been created on guild '{e.Guild.Name}' ({e.Guild.Id}).");
-        }
-
-        private async Task ChannelUpdated(ChannelUpdateEventArgs e)
-        {
-            await logService.GuildLogger(e.Guild, e, LogType.Guild);
-
-            if (!e.ChannelBefore.IsPrivate)
-            {
-                logger.Information($"Channel '{e.ChannelAfter.Name}' ({e.ChannelAfter.Id}) has been updated on guild '{e.Guild.Name}' ({e.Guild.Id}).");
-            }
-        }
-
-        private async Task ChannelDeleted(ChannelDeleteEventArgs e)
-        {
-            await logService.GuildLogger(e.Guild, e, LogType.Guild);
-
-            if (!e.Channel.IsPrivate)
-            {
-                logger.Information($"Channel '{e.Channel.Name}' ({e.Channel.Id}) has been deleted on guild '{e.Guild.Name}' ({e.Guild.Id}).");
-            }
-        }
-
-        private async Task GuildRoleCreated(GuildRoleCreateEventArgs e)
-        {
-            await logService.GuildLogger(e.Guild, e, LogType.Guild);
-
-            logger.Information($"Role '{e.Role.Name}' ({e.Role.Id}) has been created on guild '{e.Guild.Name}' ({e.Guild.Id}).");
-        }
-
-        private async Task GuildRoleUpdated(GuildRoleUpdateEventArgs e)
-        {
-            await logService.GuildLogger(e.Guild, e, LogType.Guild);
-
-            logger.Information($"Role '{e.RoleAfter.Name}' ({e.RoleAfter.Id}) has been updated on guild '{e.Guild.Name}' ({e.Guild.Id}).");
-        }
-
-        private async Task GuildRoleDeleted(GuildRoleDeleteEventArgs e)
-        {
-            await logService.GuildLogger(e.Guild, e, LogType.Guild);
-
-            logger.Information($"Role '{e.Role.Name}' ({e.Role.Id}) has been deleted on guild '{e.Guild.Name}' ({e.Guild.Id}).");
-        }
-
-        private async Task GuildMemberAdded(GuildMemberAddEventArgs e)
-        {
-            await redis.InitUser(e.Member.Id);
-            await logService.GuildLogger(e.Guild, e, LogType.JoinedLeft);
-
-            logger.Information($"Member '{e.Member.GetUsertag()}' ({e.Member.Id}) has joined the guild '{e.Guild.Name}' ({e.Guild.Id}).");
-        }
-
-        private async Task GuildMemberUpdated(GuildMemberUpdateEventArgs e)
-        {
-            var before = string.IsNullOrWhiteSpace(e.NicknameBefore) ? e.Member.Username : e.NicknameBefore;
-            var after = string.IsNullOrWhiteSpace(e.NicknameAfter) ? e.Member.Username : e.NicknameAfter;
-
-            if (before != after)
-            {
-                await logService.GuildLogger(e.Guild, e, LogType.Nickname);
-                logger.Information($"'{e.Member.GetUsertag()}' ({e.Member.Id}) has changed there nickname from '{before}' to '{after}' on '{e.Guild.Name}' ({e.Guild.Id}).");
-            }
-        }
-
-        private async Task GuildMemberRemoved(GuildMemberRemoveEventArgs e)
-        {
-            await logService.GuildLogger(e.Guild, e, LogType.JoinedLeft);
-
-            logger.Information($"Member '{e.Member.GetUsertag()}' ({e.Member.Id}) has left the guild '{e.Guild.Name}' ({e.Guild.Id}).");
-        }
-
-        private async Task GuildBanAdded(GuildBanAddEventArgs e)
-        {
-            logger.Information($"'{e.Member.GetUsertag()}' ({e.Member.Id}) has been banned from '{e.Guild.Name}' ({e.Guild.Id}).");
-        }
-
-        private async Task GuildBanRemoved(GuildBanRemoveEventArgs e)
-        {
-            logger.Information($"'{e.Member.GetUsertag()}' ({e.Member.Id}) has been unbanned from '{e.Guild.Name}' ({e.Guild.Id}).");
-        }
-
-        private async Task DmChannelCreated(DmChannelCreateEventArgs e)
-        {
-            var user = e.Channel.Recipients.First(x => !x.IsBot);
-            logger.Information($"Direct message with '{user.GetUsertag()}' ({user.Id}) has been created.");
-        }
-
-        private async Task DmChannelDeleted(DmChannelDeleteEventArgs e)
-        {
-            var user = e.Channel.Recipients.First(x => !x.IsBot);
-            logger.Information($"Direct message with '{user.GetUsertag()}' ({user.Id}) has been deleted.");
-        }
-
-        private async Task MessageCreated(MessageCreateEventArgs e)
-        {
-            /* This would kill my bot */
-        }
-
-        private async Task MessageUpdated(MessageUpdateEventArgs e)
-        {
-            if (e.Channel.IsPrivate)
-            {
-                logger.Information($"The message ({e.Message.Id}) from '{e.Author.GetUsertag()}' ({e.Author.Id}) was updated in the direct message.");
-            }
-            else
-            {
-                if (e.Author != null && !e.Author.IsBot && !e.MessageBefore.Content.Equals(e.Message.Content))
-                {
-                    await logService.GuildLogger(e.Guild, e, LogType.Message);
-                    logger.Information($"The message ({e.Message.Id}) from '{e.Author.GetUsertag()}' ({e.Author.Id}) was updated in '{e.Channel.Name}' ({e.Channel.Id}) on '{e.Guild.Name}' ({e.Guild.Id}).");
+                    await logService.GuildLogger(c, e.Guild, e, LogType.Guild).ConfigureAwait(true);
+                    this.logger.Information($"Channel '{e.Channel.Name}' ({e.Channel.Id}) has been deleted on guild '{e.Guild.Name}' ({e.Guild.Id}).");
                 }
-            }
+            });
         }
 
-        private async Task MessageDeleted(MessageDeleteEventArgs e)
+        private async Task GuildRoleCreated(DiscordClient c, GuildRoleCreateEventArgs e)
         {
-            var guildData = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id));
+            Task.Run(async () =>
+            {
+                await logService.GuildLogger(c, e.Guild, e, LogType.Guild).ConfigureAwait(true);
+                this.logger.Information($"Role '{e.Role.Name}' ({e.Role.Id}) has been created on guild '{e.Guild.Name}' ({e.Guild.Id}).");
+            });
+        }
 
-            if (e.Channel.IsPrivate)
+        private async Task GuildRoleUpdated(DiscordClient c, GuildRoleUpdateEventArgs e)
+        {
+            Task.Run(async () =>
             {
-                logger.Information(!string.IsNullOrWhiteSpace(e.Message.Content)
-                                       ? $"The message ({e.Message.Id}) from '{e.Message.Author.GetUsertag()}' ({e.Message.Author.Id}) was deleted in the direct message."
-                                       : $"The message ({e.Message.Id}) was deleted in the direct message.");
-            }
-            else
+                await logService.GuildLogger(c, e.Guild, e, LogType.Guild).ConfigureAwait(true);
+                this.logger.Information($"Role '{e.RoleAfter.Name}' ({e.RoleAfter.Id}) has been updated on guild '{e.Guild.Name}' ({e.Guild.Id}).");
+            });
+        }
+
+        private async Task GuildRoleDeleted(DiscordClient c, GuildRoleDeleteEventArgs e)
+        {
+            Task.Run(async () =>
             {
-                if (!e.Message.Author.IsBot && !e.Message.Content.StartsWith(guildData.Prefix))
+                await logService.GuildLogger(c, e.Guild, e, LogType.Guild).ConfigureAwait(true);
+                this.logger.Information($"Role '{e.Role.Name}' ({e.Role.Id}) has been deleted on guild '{e.Guild.Name}' ({e.Guild.Id}).");
+            });
+        }
+
+        private async Task GuildMemberAdded(DiscordClient c, GuildMemberAddEventArgs e)
+        {
+            Task.Run(async () =>
+            {
+                await redis.InitUser(e.Member.Id).ConfigureAwait(true);
+                await logService.GuildLogger(c, e.Guild, e, LogType.JoinedLeft).ConfigureAwait(true);
+                this.logger.Information($"Member '{e.Member.GetUsertag()}' ({e.Member.Id}) has joined the guild '{e.Guild.Name}' ({e.Guild.Id}).");
+            });
+        }
+
+        private async Task GuildMemberUpdated(DiscordClient c, GuildMemberUpdateEventArgs e)
+        {
+            Task.Run(async () =>
+            {
+                var before = string.IsNullOrWhiteSpace(e.NicknameBefore) ? e.Member.Username : e.NicknameBefore;
+                var after = string.IsNullOrWhiteSpace(e.NicknameAfter) ? e.Member.Username : e.NicknameAfter;
+
+                if (before != after)
                 {
-                    await logService.GuildLogger(e.Guild, e, LogType.Message);
+                    await logService.GuildLogger(c, e.Guild, e, LogType.Nickname).ConfigureAwait(true);
+                    this.logger.Information($"'{e.Member.GetUsertag()}' ({e.Member.Id}) has changed there nickname from '{before}' to '{after}' on '{e.Guild.Name}' ({e.Guild.Id}).");
                 }
-            }
+            });
         }
 
-        private async Task MessagesBulkDeleted(MessageBulkDeleteEventArgs e)
+        private async Task GuildMemberChunked(DiscordClient c, GuildMembersChunkEventArgs e)
         {
-            if (!e.Channel.IsPrivate)
+            // Todo: logger
+        }
+
+        private async Task GuildMemberRemoved(DiscordClient c, GuildMemberRemoveEventArgs e)
+        {
+            Task.Run(async () =>
             {
-                await logService.GuildLogger(e.Guild, e, LogType.Message);
-            }
+                await logService.GuildLogger(c, e.Guild, e, LogType.JoinedLeft).ConfigureAwait(true);
+                this.logger.Information($"Member '{e.Member.GetUsertag()}' ({e.Member.Id}) has left the guild '{e.Guild.Name}' ({e.Guild.Id}).");
+            });
+            
         }
 
-        private async Task MessageReactionAdded(MessageReactionAddEventArgs e)
+        private async Task GuildBanAdded(DiscordClient c, GuildBanAddEventArgs e)
         {
-            if (!e.User.IsBot)
+            Task.Run(async () =>
+            {
+                await logService.GuildLogger(c, e.Guild, e, LogType.Ban).ConfigureAwait(true);
+                this.logger.Information($"'{e.Member.GetUsertag()}' ({e.Member.Id}) has been banned from '{e.Guild.Name}' ({e.Guild.Id}).");
+            });
+        }
+
+        private async Task GuildBanRemoved(DiscordClient c, GuildBanRemoveEventArgs e)
+        {
+            Task.Run(async () =>
+            {
+                await logService.GuildLogger(c, e.Guild, e, LogType.Ban).ConfigureAwait(true);
+                this.logger.Information($"'{e.Member.GetUsertag()}' ({e.Member.Id}) has been unbanned from '{e.Guild.Name}' ({e.Guild.Id}).");
+            });
+        }
+
+        private async Task InviteCreated(DiscordClient c, InviteCreateEventArgs e)
+        {
+            Task.Run(async () =>
+            {
+                await logService.GuildLogger(c, e.Guild, e, LogType.Invite).ConfigureAwait(true);
+                this.logger.Information($"Invite code '{e.Invite.Code}' has been created by '{e.Invite.Inviter.GetUsertag()}' ({e.Invite.Inviter.Id}) for '{e.Guild.Name}' ({e.Guild.Id}).");
+            });
+        }
+
+        private async Task InviteDeleted(DiscordClient c, InviteDeleteEventArgs e)
+        {
+            Task.Run(async () =>
+            {
+                await logService.GuildLogger(c, e.Guild, e, LogType.Invite).ConfigureAwait(true);
+                this.logger.Information($"Invite code '{e.Invite.Code}' has been deleted by '{e.Invite.Inviter.GetUsertag()}' ({e.Invite.Inviter.Id}) on '{e.Guild.Name}' ({e.Guild.Id}).");
+            });
+        }
+
+        private async Task DmChannelCreated(DiscordClient c, DmChannelCreateEventArgs e)
+        {
+            Task.Run(async () =>
+            {
+                var user = e.Channel.Recipients.First(x => !x.IsBot);
+                this.logger.Information($"Direct message with '{user.GetUsertag()}' ({user.Id}) has been created.");
+            });
+        }
+
+        private async Task DmChannelDeleted(DiscordClient c, DmChannelDeleteEventArgs e)
+        {
+            Task.Run(async () =>
+            {
+                var user = e.Channel.Recipients.First(x => !x.IsBot);
+                this.logger.Information($"Direct message with '{user.GetUsertag()}' ({user.Id}) has been deleted.");
+            });
+        }
+
+        private async Task MessageUpdated(DiscordClient c, MessageUpdateEventArgs e)
+        {
+            Task.Run(async () =>
+            {
+                if (e.Channel.IsPrivate)
+                {
+                    this.logger.Information($"The message ({e.Message.Id}) from '{e.Author.GetUsertag()}' ({e.Author.Id}) was updated in the direct message.");
+                }
+                else
+                {
+                    if (e.MessageBefore is { } && e.Author != null && !e.Author.IsBot && !e.MessageBefore.Content.Equals(e.Message.Content))
+                    {
+                        await logService.GuildLogger(c, e.Guild, e, LogType.Message).ConfigureAwait(true);
+                        this.logger.Information($"The message ({e.Message.Id}) from '{e.Author.GetUsertag()}' ({e.Author.Id}) was updated in '{e.Channel.Name}' ({e.Channel.Id}) on '{e.Guild.Name}' ({e.Guild.Id}).");
+                    }
+                }
+            });
+        }
+
+        private async Task MessageDeleted(DiscordClient c, MessageDeleteEventArgs e)
+        {
+            Task.Run(async () =>
+            {
+                if (e.Channel.IsPrivate)
+                {
+                    this.logger.Information(!string.IsNullOrWhiteSpace(e.Message.Content)
+                        ? $"The message ({e.Message.Id}) from '{e.Message.Author.GetUsertag()}' ({e.Message.Author.Id}) was deleted in the direct message."
+                        : $"The message ({e.Message.Id}) was deleted in the direct message.");
+                }
+                else
+                {
+                    var guildData = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id)).ConfigureAwait(true);
+                    if (!e.Message.Author.IsBot && !e.Message.Content.StartsWith(guildData.Prefix))
+                    {
+                        await logService.GuildLogger(c, e.Guild, e, LogType.Message).ConfigureAwait(true);
+                    }
+                }
+            });
+        }
+
+        private async Task MessagesBulkDeleted(DiscordClient c, MessageBulkDeleteEventArgs e)
+        {
+            Task.Run(async () =>
+            {
+                if (!e.Channel.IsPrivate)
+                {
+                    await logService.GuildLogger(c, e.Guild, e, LogType.Message).ConfigureAwait(true);
+                }
+            });
+        }
+
+        private async Task MessageReactionAdded(DiscordClient c, MessageReactionAddEventArgs e)
+        {
+            Task.Run(async () =>
+            {
+                if (!e.User.IsBot)
             {
                 var emojiName = e.Emoji.Name == "??" ? "an unknown reaction" : $"the reaction '{e.Emoji.Name}' ({e.Emoji.Id})";
 
                 if (e.Channel.IsPrivate)
                 {
-                    logger.Information($"{e.User.GetUsertag()} ({e.User.Id}) has added {emojiName} to the message '{e.Message.Id}' in the direct message.");
+                    this.logger.Information($"{e.User.GetUsertag()} ({e.User.Id}) has added {emojiName} to the message '{e.Message.Id}' in the direct message.");
                 }
                 else
                 {
-                    logger.Information($"'{e.User.GetUsertag()}' ({e.User.Id}) has added {emojiName} to the message '{e.Message.Id}' in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Guild.Name}' ({e.Guild.Id}).");
+                    this.logger.Information($"'{e.User.GetUsertag()}' ({e.User.Id}) has added {emojiName} to the message '{e.Message.Id}' in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Guild.Name}' ({e.Guild.Id}).");
 
                     var member = e.Channel.Guild.GetMemberAsync(e.User.Id).Result;
 
@@ -317,7 +398,7 @@ namespace Defcon.Handler.Client
                         reactionService.ManageRole(e.Message, e.Channel, member, e.Emoji);
                     }
 
-                    var guild = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id));
+                    var guild = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id)).ConfigureAwait(true);
                     if (guild.RulesAgreement.MessageId == e.Message.Id && e.Emoji.Id == EmojiLibrary.Accepted)
                     {
                         var role = e.Guild.GetRole(guild.RulesAgreement.RoleId);
@@ -328,114 +409,138 @@ namespace Defcon.Handler.Client
                         }
                         else
                         {
-                            await member.GrantRoleAsync(role);
+                            await member.GrantRoleAsync(role).ConfigureAwait(true);
                         }
                     }
                     else if (guild.RulesAgreement.MessageId == e.Message.Id && e.Emoji.Id == EmojiLibrary.Denied)
                     {
-                        await e.Message.DeleteReactionAsync(e.Emoji, member);
-                        await member.RemoveAsync("Did not accept the server rules.");
+                        await e.Message.DeleteReactionAsync(e.Emoji, member).ConfigureAwait(true);
+                        await member.RemoveAsync("Did not accept the server rules.").ConfigureAwait(true);
                     }
                 }
             }
+            });
         }
 
-        private async Task MessageReactionRemoved(MessageReactionRemoveEventArgs e)
+        private async Task MessageReactionRemoved(DiscordClient c, MessageReactionRemoveEventArgs e)
         {
-            if (!e.User.IsBot)
+            Task.Run(async () =>
             {
-                var emojiName = e.Emoji.Name == "??" ? "an unknown reaction" : $"the reaction '{e.Emoji.Name}' ({e.Emoji.Id})";
-
-                if (e.Channel.IsPrivate)
+                if (!e.User.IsBot)
                 {
-                    logger.Information($"{e.User.GetUsertag()} ({e.User.Id}) has removed {emojiName} to the message '{e.Message.Id}' in the direct message.");
+                    var emojiName = e.Emoji.Name == "??" ? "an unknown reaction" : $"the reaction '{e.Emoji.Name}' ({e.Emoji.Id})";
 
-                    await Task.CompletedTask;
+                    if (e.Channel.IsPrivate)
+                    {
+                        this.logger.Information($"{e.User.GetUsertag()} ({e.User.Id}) has removed {emojiName} to the message '{e.Message.Id}' in the direct message.");
+                        await Task.CompletedTask.ConfigureAwait(true);
+                    }
+
+                    var guild = redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id))
+                        .GetAwaiter()
+                        .GetResult();
+
+                    if (guild.RulesAgreement.MessageId == e.Message.Id && e.Emoji.Id == EmojiLibrary.Accepted)
+                    {
+                        var role = e.Guild.GetRole(guild.RulesAgreement.RoleId);
+                        var member = e.Channel.Guild.GetMemberAsync(e.User.Id).Result;
+
+                        member.RevokeRoleAsync(role);
+                    }
+
+                    this.logger.Information($"'{e.User.GetUsertag()}' ({e.User.Id}) has removed {emojiName} to the message '{e.Message.Id}' in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Guild.Name}' ({e.Guild.Id}).");
                 }
-
-                var guild = redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id))
-                                 .GetAwaiter()
-                                 .GetResult();
-
-                if (guild.RulesAgreement.MessageId == e.Message.Id && e.Emoji.Id == EmojiLibrary.Accepted)
-                {
-                    var role = e.Guild.GetRole(guild.RulesAgreement.RoleId);
-                    var member = e.Channel.Guild.GetMemberAsync(e.User.Id).Result;
-
-                    member.RevokeRoleAsync(role);
-                }
-
-                logger.Information($"'{e.User.GetUsertag()}' ({e.User.Id}) has removed {emojiName} to the message '{e.Message.Id}' in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Guild.Name}' ({e.Guild.Id}).");
-            }
+            });
         }
 
-        private async Task MessageReactionRemovedEmoji(MessageReactionRemoveEmojiEventArgs e)
+        private async Task MessageReactionRemovedEmoji(DiscordClient c, MessageReactionRemoveEmojiEventArgs e)
         {
-            logger.Information($"All reactions with the emoji '{e.Emoji.Name}' ({e.Emoji.Id}) of the message ({e.Message.Id}) has been removed in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Guild.Name}' ({e.Guild.Id}).");
+            this.logger.Information($"All reactions with the emoji '{e.Emoji.Name}' ({e.Emoji.Id}) of the message ({e.Message.Id}) has been removed in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Guild.Name}' ({e.Guild.Id}).");
         }
 
-        private async Task MessageReactionsCleared(MessageReactionsClearEventArgs e)
+        private async Task MessageReactionsCleared(DiscordClient c, MessageReactionsClearEventArgs e)
         {
-            logger.Information($"All reactions of the message ({e.Message.Id}) has been cleared in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Guild.Name}' ({e.Guild.Id}).");
+            this.logger.Information($"All reactions of the message ({e.Message.Id}) has been cleared in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Guild.Name}' ({e.Guild.Id}).");
         }
 
-        private async Task VoiceServerUpdated(VoiceServerUpdateEventArgs e)
+        private async Task VoiceServerUpdated(DiscordClient c, VoiceServerUpdateEventArgs e)
         {
-            logger.Information($"Voice server has been updated to '{e.Endpoint}' on the guild '{e.Guild.Name}' ({e.Guild.Id}).");
+            this.logger.Information($"Voice server has been updated to '{e.Endpoint}' on the guild '{e.Guild.Name}' ({e.Guild.Id}).");
         }
 
-        private async Task VoiceStateUpdated(VoiceStateUpdateEventArgs e)
+        private async Task VoiceStateUpdated(DiscordClient c, VoiceStateUpdateEventArgs e)
         {
-            await logService.GuildLogger(e.Guild, e, LogType.Voice);
+            Task.Run(async () =>
+            {
+                await logService.GuildLogger(c, e.Guild, e, LogType.Voice).ConfigureAwait(true);
+            });
         }
 
-        private async Task SocketOpened()
+        private async Task SocketOpened(DiscordClient c, SocketEventArgs e)
         {
-            logger.Information("Socket has been opened.");
+            this.logger.Information("Socket has been opened.");
         }
 
-        private async Task SocketClosed(SocketCloseEventArgs e)
+        private async Task SocketClosed(DiscordClient c, SocketCloseEventArgs e)
         {
-            logger.Warning($"Socket has been closed. [{e.CloseCode}] ({e.CloseMessage})");
+            this.logger.Warning($"Socket has been closed. [{e.CloseCode}] ({e.CloseMessage})");
         }
 
-        private async Task SocketErrored(SocketErrorEventArgs e)
+        private async Task SocketErrored(DiscordClient c, SocketErrorEventArgs e)
         {
-            logger.Error($"Socket has been errored! ({e.Exception.Message})");
+            this.logger.Error($"Socket has been errored! ({e.Exception.Message})");
         }
 
-        private async Task ClientErrored(ClientErrorEventArgs e)
+        private async Task WebhooksUpdated(DiscordClient c, WebhooksUpdateEventArgs e)
+        {
+            this.logger.Information($"A webhook has been updated in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Guild.Name}' ({e.Guild.Id}).");
+        }
+
+        private async Task ClientErrored(DiscordClient c, ClientErrorEventArgs e)
         {
             switch (e.Exception)
             {
                 case BadRequestException badRequestException:
-                    logger.Error($"[{e.EventName}] Bad Request: {badRequestException.Message}");
-
+                    this.logger.Error($"Bad Request: {badRequestException.Message}");
                     break;
                 case RateLimitException rateLimitException:
-                    logger.Error($"[{e.EventName}] Rate Limit: {rateLimitException.Message}");
-
+                    this.logger.Error($"Rate Limit: {rateLimitException.Message}");
                     break;
                 case UnauthorizedException unauthorizedException:
-                    logger.Error($"[{e.EventName}] Unauthorized: {unauthorizedException.Message}");
-
+                    this.logger.Error($"Unauthorized: {unauthorizedException.Message}");
                     break;
                 case NotFoundException notFoundException:
-                    logger.Error($"[{e.EventName}] Not Found: {notFoundException.WebResponse}");
-
+                    this.logger.Error($"Not Found: {notFoundException.Message}");
                     break;
                 case AggregateException aggregateException:
-                    logger.Error($"[{e.EventName}] Aggregate: {aggregateException.Message}");
-
+                    this.logger.Error($"Aggregate: {aggregateException.Message}");
+                    break;
+                case ServerErrorException serverErrorException:
+                    this.logger.Error($"Server Error: {serverErrorException.Message}");
+                    break;
+                case CommandNotFoundException commandNotFoundException:
+                    this.logger.Error($"Command not found: {commandNotFoundException.Message}");
+                    break;
+                case ChecksFailedException checksFailedException:
+                    this.logger.Error($"Checks Failed: {checksFailedException.Message}");
+                    break;
+                case DuplicateCommandException duplicateCommandException:
+                    this.logger.Error($"Duplicate Command: {duplicateCommandException.Message}");
+                    break;
+                case DuplicateOverloadException duplicateOverloadException:
+                    this.logger.Error($"Duplicate overload: {duplicateOverloadException.Message}");
+                    break;
+                case InvalidOverloadException invalidOverloadException:
+                    this.logger.Error($"Invalid overload: {invalidOverloadException.Message}");
                     break;
             }
 
-            logger.Error(e.Exception, $"Client has occurred an error: {e.EventName}");
+            this.logger.Error(e.Exception, $"Client has occurred an error: {e.EventName}");
         }
 
-        private async Task UnknownEvent(UnknownEventArgs e)
+        private async Task UnknownEvent(DiscordClient c, UnknownEventArgs e)
         {
-            logger.Warning($"Unknown Event: {e.EventName}");
+            this.logger.Warning($"Unknown Event: {e.EventName}");
         }
     }
 }

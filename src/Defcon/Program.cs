@@ -3,7 +3,6 @@ using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Defcon.Core;
-using Defcon.Core.Database;
 using Defcon.Data.Configuration;
 using Defcon.Data.Guilds;
 using Defcon.Handler.Client;
@@ -20,6 +19,7 @@ using DSharpPlus.CommandsNext;
 using DSharpPlus.Entities;
 using DSharpPlus.Interactivity;
 using DSharpPlus.Interactivity.Enums;
+using DSharpPlus.Interactivity.Extensions;
 using ImageMagick;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
@@ -80,30 +80,29 @@ namespace Defcon
 
         private async Task Setup()
         {
-            var redisSetup = new Setup(logger);
+            var redisSetup = new Setup(this.logger);
 
-            logger.Information("Initializing the services setup...");
+            this.logger.Information("Initializing the services setup...");
             services = new ServiceCollection().AddStackExchangeRedisExtensions<NewtonsoftSerializer>(redisSetup.RedisConfiguration);
 
             serviceProvider = services.BuildServiceProvider();
             redis = serviceProvider.GetService<IRedisDatabase>();
 
-            reactionService = new ReactionService(logger, redis);
-            infractionService = new InfractionService(logger, redis);
-            logService = new LogService(logger, redis);
-            services.AddSingleton(logger)
+            reactionService = new ReactionService(this.logger, redis);
+            infractionService = new InfractionService(this.logger, redis);
+            logService = new LogService(this.logger, redis);
+            services.AddSingleton(this.logger)
                     .AddSingleton(reactionService)
                     .AddSingleton(infractionService)
-                    .AddSingleton(logService)
-                    .AddTransient<MySql>(x => new MySql(host: "", port: 3306, user: "", password: "", database: ""));
+                    .AddSingleton(logService);
             serviceProvider = services.BuildServiceProvider();
-            logger.Information("Successfully setup the services.");
+            this.logger.Information("Successfully setup the services.");
 
             config = await redis.GetAsync<Config>(RedisKeyNaming.Config).ConfigureAwait(true);
 
             if (config == null || string.IsNullOrWhiteSpace(config.Token))
             {
-                logger.Information("Initializing the bot token setup...");
+                this.logger.Information("Initializing the bot token setup...");
                 Console.Write("Your bot token: ");
                 var token = Console.ReadLine();
 
@@ -121,21 +120,21 @@ namespace Defcon
                     await redis.ReplaceAsync(RedisKeyNaming.Config, config).ConfigureAwait(true);
                 }
 
-                logger.Information("Successfully set the bot token into the database.");
+                this.logger.Information("Successfully set the bot token into the database.");
             }
             else
             {
-                logger.Information("Discord token is already set and will be used from the database.");
+                this.logger.Information("Discord token is already set and will be used from the database.");
             }
 
             OpenCL.IsEnabled = false;
-            logger.Information("Disabled GPU acceleration.");
+            this.logger.Information("Disabled GPU acceleration.");
             await Task.CompletedTask.ConfigureAwait(true);
         }
 
         private async Task Login()
         {
-            logger.Information("Initializing the client setup...");
+            this.logger.Information("Initializing the client setup...");
 
             client = new DiscordShardedClient(new DiscordConfiguration
             {
@@ -148,8 +147,8 @@ namespace Defcon
                 GatewayCompressionLevel = GatewayCompressionLevel.Stream
             });
 
-            logger.Information("Successfully setup the client.");
-            logger.Information("Setting up all configurations...");
+            this.logger.Information("Successfully setup the client.");
+            this.logger.Information("Setting up all configurations...");
 
             var ccfg = new CommandsNextConfiguration
             {
@@ -162,15 +161,15 @@ namespace Defcon
                 UseDefaultCommandHandler = true
             };
 
-            logger.Information("Commands configuration setup done.");
+            this.logger.Information("Commands configuration setup done.");
 
             var icfg = new InteractivityConfiguration { PollBehaviour = PollBehaviour.KeepEmojis, Timeout = TimeSpan.FromMinutes(2) };
 
-            logger.Information("Interactivity configuration setup done.");
-            logger.Information("Connecting all shards...");
+            this.logger.Information("Interactivity configuration setup done.");
+            this.logger.Information("Connecting all shards...");
             await client.StartAsync()
                         .ConfigureAwait(true);
-            logger.Information("Setting up client event handler...");
+            this.logger.Information("Setting up client event handler...");
             clientEventHandler = new ClientEventHandler(client, logger, redis, reactionService, logService);
 
             foreach (var shard in client.ShardClients.Values)
@@ -180,15 +179,15 @@ namespace Defcon
                 commandsNext.RegisterCommands(typeof(Modules.Dummy).Assembly);
                 commandsNext.SetHelpFormatter<HelpFormatter>();
                 shard.UseInteractivity(icfg);
-                logger.Information($"Settings up command event handler for the shard {shard.ShardId}...");
+                this.logger.Information($"Settings up command event handler for the shard {shard.ShardId}...");
                 commandEventHandler = new CommandEventHandler(commandsNext, logger);
-                logger.Information($"Setup for shard {shard.ShardId} done.");
+                this.logger.Information($"Setup for shard {shard.ShardId} done.");
                 await shard.InitializeAsync().ConfigureAwait(true);
             }
 
             foreach (var cNextRegisteredCommand in commandsNext.RegisteredCommands)
             {
-                logger.Information($"{cNextRegisteredCommand.Value} is registered!");
+                this.logger.Information($"{cNextRegisteredCommand.Value} is registered!");
             }
         }
 

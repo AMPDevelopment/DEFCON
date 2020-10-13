@@ -31,38 +31,23 @@ namespace Defcon.Library.Services.Infractions
             var owners = client.CurrentApplication.Owners;
             var verb = infractionType.ToInfractionString().ToLowerInvariant();
             var action = infractionType.ToActionString().ToLowerInvariant();
-            var isAdministrator = false;
-            var isSuspectAdministrator = false;
-            
-            foreach (var role in moderator.Roles)
-            {
-                if (isAdministrator) break;
-                if (role.Permissions.HasPermission(Permissions.Administrator))
-                {
-                    isAdministrator = true;
-                }
-            }
-            
-            foreach (var role in suspect.Roles)
-            {
-                if (isSuspectAdministrator) break;
-                if (role.Permissions.HasPermission(Permissions.Administrator))
-                {
-                    isSuspectAdministrator = true;
-                }
-            }
+            var isModerator = await redis.IsModerator(guild.Id, moderator);
 
-            if (owners.Any(x => x.Id == suspect.Id))
+            var isAdministrator = moderator.Roles.Any(role => role.Permissions.HasPermission(Permissions.Administrator));
+            var isSuspectAdministrator = suspect.Roles.Any(role => role.Permissions.HasPermission(Permissions.Administrator));
+            isModerator = !isModerator && isAdministrator;
+
+            if (!isModerator)
             {
-                await channel.SendMessageAsync($"You can not {verb} my master!");
-            }
-            else if (await redis.IsModerator(guild.Id, moderator) == false || !isAdministrator)
-            {
-                await channel.SendMessageAsync("You are not a moderator or administrator!");
-            }
+                await channel.SendMessageAsync("You are not a moderator of this server.");
+            } 
             else if (moderator == suspect)
             {
                 await channel.SendMessageAsync($"You can not {verb} yourself!");
+            }
+            else if (owners.Any(x => x.Id == suspect.Id))
+            {
+                await channel.SendMessageAsync($"You can not {verb} {suspect.Username}!");
             }
             else if (suspect.IsOwner)
             {
@@ -153,16 +138,31 @@ namespace Defcon.Library.Services.Infractions
         {
             var guildData = await redis.InitGuild(guild.Id);
             var roleName = role.Name;
-
-            if (guildData.ModeratorRoleIds.Contains(role.Id))
+            var modRoleExists = guildData.ModeratorRoleIds.Contains(role.Id);
+            
+            if (isAdd)
             {
-                guildData.ModeratorRoleIds.Remove(role.Id);
-                await channel.SendMessageAsync($"Removed `{roleName}` role from the moderation team of this guild.");
+                if (modRoleExists)
+                {
+                    await channel.SendMessageAsync($"Role `{roleName}` already exists in the configuration.");
+                }
+                else
+                {
+                    guildData.ModeratorRoleIds.Add(role.Id);
+                    await channel.SendMessageAsync($"Added `{roleName}` role to the moderation team of this guild.");
+                }
             }
             else
             {
-                guildData.ModeratorRoleIds.Add(role.Id);
-                await channel.SendMessageAsync($"Added `{roleName}` role to the moderation team of this guild.");
+                if (!modRoleExists)
+                {
+                    await channel.SendMessageAsync($"Role `{roleName}` does not exists in the configuration.");
+                }
+                else
+                {
+                    guildData.ModeratorRoleIds.Remove(role.Id);
+                    await channel.SendMessageAsync($"Removed `{roleName}` role from the moderation team of this guild.");
+                }
             }
 
             await redis.ReplaceAsync<Guild>(RedisKeyNaming.Guild(guild.Id), guildData);

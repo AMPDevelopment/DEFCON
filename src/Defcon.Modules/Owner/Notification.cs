@@ -50,7 +50,7 @@ namespace Defcon.Modules.Owner
             {
                 embed.WithFooter($"This notification was sent to you due to you are the owner of the {guild.Name} server.");
                 await guild.Owner.SendMessageAsync(embed: embed);
-                logger.Information($"Notification from '{owner.GetUsertag()}' has been sent to the owner '{guild.Owner.GetUsertag()}' ({guild.Owner.Id}) from '{guild.Name}' ({guild.Id})");
+                this.logger.Information($"Notification from '{owner.GetUsertag()}' has been sent to the owner '{guild.Owner.GetUsertag()}' ({guild.Owner.Id}) from '{guild.Name}' ({guild.Id})");
             }
         }
     }

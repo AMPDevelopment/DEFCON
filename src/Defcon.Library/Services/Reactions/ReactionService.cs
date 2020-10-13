@@ -61,13 +61,13 @@ namespace Defcon.Library.Services.Reactions
             {
                 if (member.Roles.Contains(role))
                 {
-                    logger.Information($"The role '{role.Name}' was revoked from '{member.GetUsertag()}' on the guild '{channel.Guild.Name}' ({channel.GuildId}).");
+                    this.logger.Information($"The role '{role.Name}' was revoked from '{member.GetUsertag()}' on the guild '{channel.Guild.Name}' ({channel.GuildId}).");
                     await member.RevokeRoleAsync(role);
                     await member.SendMessageAsync($"The role {Formatter.InlineCode(role.Name)} has been revoked from you on {Formatter.Bold(channel.Guild.Name)}.");
                 }
                 else
                 {
-                    logger.Information($"The role '{role.Name}' was granted to '{member.GetUsertag()}' on the guild '{channel.Guild.Name}' ({channel.GuildId}).");
+                    this.logger.Information($"The role '{role.Name}' was granted to '{member.GetUsertag()}' on the guild '{channel.Guild.Name}' ({channel.GuildId}).");
                     await member.GrantRoleAsync(role);
                     await member.SendMessageAsync($"The role {Formatter.InlineCode(role.Name)} has been granted to you on {Formatter.Bold(channel.Guild.Name)}.");
                 }

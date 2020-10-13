@@ -34,8 +34,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="DSharpPlus" Version="4.0.0-nightly-00720" />
-      <PackageReference Include="MySqlConnector" Version="1.0.1" />
+      <PackageReference Include="DSharpPlus" Version="4.0.0-nightly-00741" />
     </ItemGroup>
 
 </Project>

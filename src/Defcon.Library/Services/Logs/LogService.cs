@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 using Defcon.Core.Entities.Enums;
 using Defcon.Data.Guilds;
 using Defcon.Core.Entities.Discord.Embeds;
-using Defcon.Data.Users;
 using Defcon.Library.Extensions;
 using Defcon.Library.Redis;
 using DSharpPlus;
@@ -104,7 +103,7 @@ namespace Defcon.Library.Services.Logs
             }
         }
 
-        public async Task GuildLogger(DiscordGuild guild, object eventArgs, LogType logType)
+        public async Task GuildLogger(BaseDiscordClient client, DiscordGuild guild, object eventArgs, LogType logType)
         {
             var guildData = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(guild.Id));
             var logs = guildData.Logs;
@@ -118,368 +117,107 @@ namespace Defcon.Library.Services.Logs
                 {
                     var embed = new Embed();
 
-                    if (eventArgs is ChannelCreateEventArgs channelCreateEventArgs)
+                    switch (eventArgs)
                     {
-                        embed.Title = $"{DiscordEmoji.FromGuildEmote(channelCreateEventArgs.Client, EmojiLibrary.New)} Channel created";
-                        embed.Description = new StringBuilder().AppendLine($"Name: `{channelCreateEventArgs.Channel.Name}` {channelCreateEventArgs.Channel.Mention}")
-                                                               .AppendLine($"Identity: `{channelCreateEventArgs.Channel.Id}`")
-                                                               .AppendLine($"Type: {channelCreateEventArgs.Channel.Type.ToString()}")
-                                                               .ToString();
-                        embed.Color = DiscordColor.SpringGreen;
-                    }
-                    else if (eventArgs is ChannelUpdateEventArgs channelUpdateEventArgs)
-                    {
-                        if (!channelUpdateEventArgs.ChannelBefore.IsPrivate)
+                        case ChannelCreateEventArgs channelCreateEventArgs:
+                            ChannelCreate(client, embed, channelCreateEventArgs);
+                            break;
+                        case ChannelUpdateEventArgs channelUpdateEventArgs:
+                            ChannelUpdate(client, embed, channelUpdateEventArgs);
+                            break;
+                        case ChannelDeleteEventArgs channelDeleteEventArgs:
+                            ChannelDelete(client, guild, logs, channelDeleteEventArgs, guildData, embed);
+                            break;
+                        case GuildRoleCreateEventArgs guildRoleCreateEventArgs:
+                            GuildRoleCreate(client, embed, guildRoleCreateEventArgs);
+                            break;
+                        case GuildRoleUpdateEventArgs guildRoleUpdateEventArgs:
+                            GuildRoleUpdate(client, embed, guildRoleUpdateEventArgs);
+                            break;
+                        case GuildRoleDeleteEventArgs guildRoleDeleteEventArgs:
+                            GuildRoleDelete(client, embed, guildRoleDeleteEventArgs);
+                            break;
+                        case GuildMemberAddEventArgs memberAddEventArgs:
+                            GuildMemberAdd(client, embed, memberAddEventArgs);
+                            break;
+                        case GuildMemberUpdateEventArgs guildMemberUpdateEventArgs:
+                            GuildMemberUpdate(client, embed, guildMemberUpdateEventArgs);
+                            break;
+                        case GuildMemberRemoveEventArgs guildMemberRemoveEventArgs:
+                            GuildMemberRemove(client, embed, guildMemberRemoveEventArgs, logType);
+                            break;
+                        case GuildBanAddEventArgs guildBanAddEventArgs:
+                            GuildBanAdd(client, embed, guildBanAddEventArgs);
+                            break;
+                        case GuildBanRemoveEventArgs guildBanRemoveEventArgs:
+                            // Todo: With or without command
+                            break;
+                        case InviteCreateEventArgs inviteCreateEventArgs:
+                            InviteCreate(client, embed, inviteCreateEventArgs);
+                            break;
+                        case InviteDeleteEventArgs inviteDeleteEventArgs:
+                            InviteDelete(client, embed, inviteDeleteEventArgs);
+                            break;
+                        case MessageUpdateEventArgs messageUpdateEventArgs:
+                            MessageUpdate(client, embed, messageUpdateEventArgs);
+                            break;
+                        case MessageDeleteEventArgs messageDeleteEventArgs:
+                            MessageDelete(client, embed, messageDeleteEventArgs);
+                            break;
+                        case MessageBulkDeleteEventArgs messageBulkDeleteEventArgs:
+                            MessageBulkDelete(client, embed, messageBulkDeleteEventArgs);
+                            break;
+                        case MessageReactionAddEventArgs messageReactionAddEventArgs:
+                            // Why should this be a feature at all?
+                            break;
+                        case MessageReactionRemoveEventArgs messageReactionRemoveEventArgs:
+                            // Why should this be a feature at all?
+                            break;
+                        case MessageReactionRemoveEmojiEventArgs messageReactionRemoveEmojiEventArgs:
+                            // Why should this be a feature at all?
+                            break;
+                        case MessageReactionsClearEventArgs messageReactionsClearEventArgs:
+                            // Why should this be a feature at all?
+                            break;
+                        case VoiceStateUpdateEventArgs voiceStateUpdateEventArgs:
                         {
-                            embed.Title = $"{DiscordEmoji.FromGuildEmote(channelUpdateEventArgs.Client, EmojiLibrary.Update)} Channel updated";
-                            embed.Description = new StringBuilder().AppendLine(channelUpdateEventArgs.ChannelBefore.Name == channelUpdateEventArgs.ChannelAfter.Name
-                                                                                   ? $"Name: `{channelUpdateEventArgs.ChannelAfter.Name}` {channelUpdateEventArgs.ChannelAfter.Mention}"
-                                                                                   : $"Name: `{channelUpdateEventArgs.ChannelBefore.Name}` to `{channelUpdateEventArgs.ChannelAfter.Name}` {channelUpdateEventArgs.ChannelAfter.Mention}")
-                                                                   .AppendLine($"Identity: `{channelUpdateEventArgs.ChannelAfter.Id}`")
-                                                                   .AppendLine($"Type: {channelUpdateEventArgs.ChannelAfter.Type.ToString()}")
-                                                                   .ToString();
-                            embed.Color = DiscordColor.CornflowerBlue;
-                        }
-                    }
-                    else if (eventArgs is ChannelDeleteEventArgs channelDeleteEventArgs)
-                    {
-                        if (logs.Any(x => x.ChannelId == channelDeleteEventArgs.Channel.Id))
-                        {
-                            var deletedLogChannel = logs.First(x => x.ChannelId == channelDeleteEventArgs.Channel.Id);
-                            guildData.Logs.Remove(deletedLogChannel);
-                            await redis.ReplaceAsync(RedisKeyNaming.Guild(guild.Id), guildData);
-                        }
+                            var before = voiceStateUpdateEventArgs.Before;
+                            var after = voiceStateUpdateEventArgs.After;
+                            var beforeChannel = voiceStateUpdateEventArgs.Before?.Channel;
+                            var afterChannel = voiceStateUpdateEventArgs.After?.Channel;
 
-                        if (!channelDeleteEventArgs.Channel.IsPrivate)
-                        {
-                            embed.Title = $"{DiscordEmoji.FromGuildEmote(channelDeleteEventArgs.Client, EmojiLibrary.Erase)} Channel deleted";
-                            embed.Description = new StringBuilder().AppendLine($"Name: `{channelDeleteEventArgs.Channel.Name}`")
-                                                                   .AppendLine($"Identity: `{channelDeleteEventArgs.Channel.Id}`")
-                                                                   .AppendLine($"Type: {channelDeleteEventArgs.Channel.Type.ToString()}")
-                                                                   .ToString();
-                            embed.Color = DiscordColor.IndianRed;
-                        }
-                    }
-                    else if (eventArgs is GuildRoleCreateEventArgs guildRoleCreateEventArgs)
-                    {
-                        embed.Title = $"{DiscordEmoji.FromGuildEmote(guildRoleCreateEventArgs.Client, EmojiLibrary.New)} Role created";
-                        embed.Description = new StringBuilder().AppendLine($"Name: `{guildRoleCreateEventArgs.Role.Name}`")
-                                                               .AppendLine($"Identity: `{guildRoleCreateEventArgs.Role.Id}`")
-                                                               .ToString();
-                        embed.Color = DiscordColor.SpringGreen;
-                    }
-                    else if (eventArgs is GuildRoleUpdateEventArgs guildRoleUpdateEventArgs)
-                    {
-                        embed.Title = $"{DiscordEmoji.FromGuildEmote(guildRoleUpdateEventArgs.Client, EmojiLibrary.Update)} Role updated";
-                        embed.Description = new StringBuilder().AppendLine(guildRoleUpdateEventArgs.RoleBefore.Name == guildRoleUpdateEventArgs.RoleAfter.Name
-                                                                               ? $"Name: `{guildRoleUpdateEventArgs.RoleAfter.Name}` {guildRoleUpdateEventArgs.RoleAfter.Mention}"
-                                                                               : $"Name: `{guildRoleUpdateEventArgs.RoleBefore.Name}` to `{guildRoleUpdateEventArgs.RoleAfter.Name}` {guildRoleUpdateEventArgs.RoleAfter.Mention}")
-                                                               .AppendLine($"Identity: `{guildRoleUpdateEventArgs.RoleAfter.Id}`")
-                                                               .ToString();
-                        embed.Color = DiscordColor.CornflowerBlue;
-                    }
-                    else if (eventArgs is GuildRoleDeleteEventArgs guildRoleDeleteEventArgs)
-                    {
-                        embed.Title = $"{DiscordEmoji.FromGuildEmote(guildRoleDeleteEventArgs.Client, EmojiLibrary.Erase)} Role deleted";
-                        embed.Description = new StringBuilder().AppendLine($"Name: `{guildRoleDeleteEventArgs.Role.Name}`")
-                                                               .AppendLine($"Identity: `{guildRoleDeleteEventArgs.Role.Id}`")
-                                                               .ToString();
-                        embed.Color = DiscordColor.IndianRed;
-                    }
-                    else if (eventArgs is GuildMemberAddEventArgs memberAddEventArgs)
-                    {
-                        embed.Title = $"{DiscordEmoji.FromGuildEmote(memberAddEventArgs.Client, EmojiLibrary.Joined)} Member joined";
-                        embed.Description = new StringBuilder().AppendLine($"Username: `{memberAddEventArgs.Member.GetUsertag()}`")
-                                                               .AppendLine($"User identity: `{memberAddEventArgs.Member.Id}`")
-                                                               .AppendLine($"Registered: {memberAddEventArgs.Member.CreatedAtLongDateTimeString().Result}")
-                                                               .ToString();
-                        embed.Color = DiscordColor.SpringGreen;
-                        embed.Thumbnail = memberAddEventArgs.Member.AvatarUrl;
-                    }
-                    else if (eventArgs is GuildMemberUpdateEventArgs guildMemberUpdateEventArgs)
-                    {
-                        var before = string.IsNullOrWhiteSpace(guildMemberUpdateEventArgs.NicknameBefore) ? guildMemberUpdateEventArgs.Member.Username : guildMemberUpdateEventArgs.NicknameBefore;
-                        var after = string.IsNullOrWhiteSpace(guildMemberUpdateEventArgs.NicknameAfter) ? guildMemberUpdateEventArgs.Member.Username : guildMemberUpdateEventArgs.NicknameAfter;
-
-                        embed.Title = $"{DiscordEmoji.FromGuildEmote(guildMemberUpdateEventArgs.Client, EmojiLibrary.Edit)} Nickname changed";
-                        embed.Description = new StringBuilder().AppendLine($"Mention: {guildMemberUpdateEventArgs.Member.Mention}")
-                                                               .AppendLine($"Username: {Formatter.InlineCode(guildMemberUpdateEventArgs.Member.GetUsertag())}")
-                                                               .AppendLine($"Identity: {Formatter.InlineCode($"{guildMemberUpdateEventArgs.Member.Id}")}")
-                                                               .ToString();
-                        embed.Color = DiscordColor.CornflowerBlue;
-                        embed.Thumbnail = guildMemberUpdateEventArgs.Member.AvatarUrl;
-                        embed.Fields = new List<EmbedField>
-                        {
-                            new EmbedField {Inline = false, Name = "Before", Value = before},
-                            new EmbedField {Inline = false, Name = "After", Value = after}
-                        };
-                        embed.Footer = new EmbedFooter { Text = $"Member Id: {guildMemberUpdateEventArgs.Member.Id}" };
-                    }
-                    else if (eventArgs is GuildMemberRemoveEventArgs guildMemberRemoveEventArgs)
-                    {
-                        var roles = guildMemberRemoveEventArgs.Member.Roles.Any()
-                            ? guildMemberRemoveEventArgs.Member.Roles.Where(x => x.Name != "@everyone")
-                                                        .OrderByDescending(r => r.Position)
-                                                        .Aggregate("", (current, x) => current + $"{x.Mention} ")
-                            : "None";
-                        var description = new StringBuilder().AppendLine($"Username: `{guildMemberRemoveEventArgs.Member.GetUsertag()}`")
-                            .AppendLine($"User identity: `{guildMemberRemoveEventArgs.Member.Id}`");
-                        
-                        var userData = await redis.GetAsync<User>(RedisKeyNaming.User(guildMemberRemoveEventArgs.Member.Id));
-                        var status = "left";
-                        var reason = "unknown";
-                        var moderator = string.Empty;
-
-                        switch (logType)
-                        {
-                            case LogType.Ban:
+                            if (beforeChannel != null)
                             {
-                                var infraction = userData.Infractions.Last(x => x.InfractionType == InfractionType.Ban && x.GuildId == guildMemberRemoveEventArgs.Guild.Id);
-                                moderator = $"{infraction.ModeratorUsername} {Formatter.InlineCode($"{infraction.ModeratorId}")}";
-                                status = "banned";
-                                reason = infraction.Reason;
-                                break;
-                            }
-                            case LogType.Kick:
-                            {
-                                var infraction = userData.Infractions.Last(x => x.InfractionType == InfractionType.Kick && x.GuildId == guildMemberRemoveEventArgs.Guild.Id);
-                                moderator = $"{infraction.ModeratorUsername} {Formatter.InlineCode($"{infraction.ModeratorId}")}";
-                                status = "kicked";
-                                reason = infraction.Reason;
-                                break;
-                            }
-                        }
-
-                        description.AppendLine($"Status: {status}");
-
-                        if (!string.IsNullOrWhiteSpace(moderator))
-                        {
-                            description.AppendLine($"Moderator: {moderator}");
-                        }
-
-                        description.AppendLine($"Reason: {reason}");
-
-                        embed.Title = $"{DiscordEmoji.FromGuildEmote(guildMemberRemoveEventArgs.Client, EmojiLibrary.Left)} Member left";
-                        embed.Description = description.ToString();
-
-                        switch (logType)
-                        {
-                            case LogType.JoinedLeft:
-                                embed.Color = DiscordColor.Gray;
-                                break;
-                            case LogType.Ban:
-                                embed.Color = DiscordColor.IndianRed;
-                                break;
-                            case LogType.Kick:
-                                embed.Color = DiscordColor.Yellow;
-                                break;
-                        }
-
-                        embed.Thumbnail = guildMemberRemoveEventArgs.Member.AvatarUrl;
-                        embed.Fields = new List<EmbedField> { new EmbedField { Inline = false, Name = "Roles", Value = roles } };
-                    }
-                    else if (eventArgs is GuildBanAddEventArgs guildBanAddEventArgs)
-                    {
-                        // Currently handled in GuildMemberRemovedEventArgs
-                    }
-                    else if (eventArgs is GuildBanRemoveEventArgs guildBanRemoveEventArgs)
-                    {
-                        
-                    }
-                    else if (eventArgs is MessageUpdateEventArgs messageUpdateEventArgs)
-                    {
-                        var fields = new List<EmbedField>
-                        {
-                            new EmbedField
-                            {
-                                Inline = false,
-                                Name = "Before"
-                            }
-                        };
-
-                        fields.First()
-                              .Value = messageUpdateEventArgs.MessageBefore != null
-                            ? messageUpdateEventArgs.MessageBefore.Content
-                            : "The value is not available due to the message was send while the bot were offline or it's no longer in the cache.";
-
-                        fields.Add(new EmbedField
-                        {
-                            Inline = false,
-                            Name = "Now",
-                            Value = Formatter.MaskedUrl("Jump to message", messageUpdateEventArgs.Message.JumpLink)
-                        });
-
-                        embed.Title = $"{DiscordEmoji.FromGuildEmote(messageUpdateEventArgs.Client, EmojiLibrary.Edit)} Message updated";
-                        embed.Description = new StringBuilder().AppendLine($"Message ({messageUpdateEventArgs.Message.Id}) updated in {messageUpdateEventArgs.Channel.Mention}.")
-                                                               .ToString();
-                        embed.Color = DiscordColor.CornflowerBlue;
-                        embed.Thumbnail = messageUpdateEventArgs.Author.AvatarUrl;
-                        embed.Fields = fields;
-                        embed.Footer = new EmbedFooter { Text = $"Author: {messageUpdateEventArgs.Author.Id} | Message Id: {messageUpdateEventArgs.Message.Id}" };
-                    }
-                    else if (eventArgs is MessageDeleteEventArgs messageDeleteEventArgs)
-                    {
-                        logger.Information(!string.IsNullOrWhiteSpace(messageDeleteEventArgs.Message.Content)
-                                           ? $"The message ({messageDeleteEventArgs.Message.Id}) from '{messageDeleteEventArgs.Message.Author.GetUsertag()}' ({messageDeleteEventArgs.Message.Author.Id}) was deleted in '{messageDeleteEventArgs.Channel.Name}' ({messageDeleteEventArgs.Channel.Id}) on '{messageDeleteEventArgs.Guild.Name}' ({messageDeleteEventArgs.Guild.Id})."
-                                           : $"The message ({messageDeleteEventArgs.Message.Id}) was deleted in '{messageDeleteEventArgs.Channel.Name}' ({messageDeleteEventArgs.Channel.Id}) on '{messageDeleteEventArgs.Guild.Name}' ({messageDeleteEventArgs.Guild.Id}).");
-
-
-                        var thumbnailUrl = string.Empty;
-                        var fields = new List<EmbedField>
-                        {
-                            new EmbedField
-                            {
-                                Inline = false,
-                                Name = "Content"
-                            }
-                        };
-
-                        if (messageDeleteEventArgs.Message != null)
-                        {
-                            thumbnailUrl = messageDeleteEventArgs.Message.Author.AvatarUrl;
-                            fields.First()
-                                  .Value = messageDeleteEventArgs.Message.Content;
-                            embed.Footer = new EmbedFooter { Text = $"Author: {messageDeleteEventArgs.Message.Author.Id} | Message Id: {messageDeleteEventArgs.Message.Id}" };
-                        }
-                        else
-                        {
-                            fields.First()
-                                  .Value = "The value is not available due to the message was send while the bot were offline or it's no longer in the cache.";
-                            embed.Footer = new EmbedFooter { Text = $"Message Id: {messageDeleteEventArgs.Message.Id}" };
-                        }
-
-                        embed.Title = $"{DiscordEmoji.FromGuildEmote(messageDeleteEventArgs.Client, EmojiLibrary.Erase)} Message deleted";
-                        embed.Description = new StringBuilder().AppendLine($"Message ({messageDeleteEventArgs.Message.Id}) deleted in {messageDeleteEventArgs.Channel.Mention}.")
-                                                               .ToString();
-                        embed.Color = DiscordColor.IndianRed;
-                        embed.Thumbnail = thumbnailUrl;
-                        embed.Fields = fields;
-                    }
-                    else if (eventArgs is MessageBulkDeleteEventArgs messageBulkDeleteEventArgs)
-                    {
-                        embed.Title = $"{DiscordEmoji.FromGuildEmote(messageBulkDeleteEventArgs.Client, EmojiLibrary.Erase)} Message bulk deleted";
-                        embed.Description = new StringBuilder().AppendLine($"{messageBulkDeleteEventArgs.Messages.Count} messages deleted in {messageBulkDeleteEventArgs.Channel.Mention}.")
-                                                               .ToString();
-                        embed.Color = DiscordColor.IndianRed;
-                    }
-                    else if (eventArgs is MessageReactionAddEventArgs messageReactionAddEventArgs)
-                    {
-                        // Why should this be a feature at all?
-                    }
-                    else if (eventArgs is MessageReactionRemoveEventArgs messageReactionRemoveEventArgs)
-                    {
-                        // Why should this be a feature at all?
-                    }
-                    else if (eventArgs is MessageReactionRemoveEmojiEventArgs messageReactionRemoveEmojiEventArgs)
-                    {
-                        // Why should this be a feature at all?
-                    }
-                    else if (eventArgs is MessageReactionsClearEventArgs messageReactionsClearEventArgs)
-                    {
-                        // Why should this be a feature at all?
-                    }
-                    else if (eventArgs is VoiceStateUpdateEventArgs voiceStateUpdateEventArgs)
-                    {
-                        var channel = voiceStateUpdateEventArgs.Channel;
-                        var before = voiceStateUpdateEventArgs.Before;
-                        var after = voiceStateUpdateEventArgs.After;
-                        var beforeChannel = voiceStateUpdateEventArgs.Before?.Channel;
-                        var afterChannel = voiceStateUpdateEventArgs.After?.Channel;
-                        var acceptedEmoji = DiscordEmoji.FromGuildEmote(voiceStateUpdateEventArgs.Client, EmojiLibrary.Accepted);
-                        var deniedEmoji = DiscordEmoji.FromGuildEmote(voiceStateUpdateEventArgs.Client, EmojiLibrary.Denied);
-
-                        if (beforeChannel != null)
-                        {
-                            if (afterChannel != null)
-                            {
-                                if (beforeChannel != afterChannel)
+                                if (afterChannel != null)
                                 {
-                                    embed.Title = $"{DiscordEmoji.FromGuildEmote(voiceStateUpdateEventArgs.Client, EmojiLibrary.Update)} Member switched voice channel";
-                                    embed.Description = $"Switched from {Formatter.InlineCode(beforeChannel.Name)} to {Formatter.InlineCode(afterChannel.Name)}";
-                                    logger.Information($"Member '{voiceStateUpdateEventArgs.User.GetUsertag()}' ({voiceStateUpdateEventArgs.User.Id}) switched the channel from '{beforeChannel.Name}' ({beforeChannel.Id}) to '{afterChannel.Name}' ({afterChannel.Id}) on the guild '{voiceStateUpdateEventArgs.Guild.Name}' ({voiceStateUpdateEventArgs.Guild.Id}).");
+                                    if (beforeChannel != afterChannel)
+                                    {
+                                        VoiceStateUpdateMemberSwitched(client, embed, voiceStateUpdateEventArgs, beforeChannel, afterChannel);
+                                    }
+                                    else
+                                    {
+                                        VoiceStateUpdateMedia(client, embed, voiceStateUpdateEventArgs, before, after);
+                                    }
+
+                                    embed.Color = DiscordColor.CornflowerBlue;
                                 }
                                 else
                                 {
-                                    var actionLog = string.Empty;
-                                    var actionEmbed = string.Empty;
-                                    var stateChanged = false;
-
-                                    if (before.IsSelfDeafened != after.IsSelfDeafened)
-                                    {
-                                        stateChanged = true;
-                                        var from = before.IsSelfDeafened ? acceptedEmoji : deniedEmoji;
-                                        var to = after.IsSelfDeafened ? acceptedEmoji : deniedEmoji;
-                                        actionLog = $"'self deafened' from {before.IsSelfDeafened.ToString()} to {after.IsSelfDeafened.ToString()}";
-                                        actionEmbed = $"{Formatter.InlineCode("Self Deafened")} state has been updated from {from} to {to}";
-                                    }
-
-                                    if (before.IsSelfMuted != after.IsSelfMuted)
-                                    {
-                                        stateChanged = true;
-                                        var from = before.IsSelfMuted ? acceptedEmoji : deniedEmoji;
-                                        var to = after.IsSelfMuted ? acceptedEmoji : deniedEmoji;
-                                        actionLog = $"'self muted' from {before.IsSelfMuted.ToString()} to {after.IsSelfMuted.ToString()}";
-                                        actionEmbed = $"{Formatter.InlineCode("Self Muted")} state has been updated from {from} to {to}";
-                                    }
-
-                                    if (before.IsServerDeafened != after.IsServerDeafened)
-                                    {
-                                        stateChanged = true;
-                                        var from = before.IsServerDeafened ? acceptedEmoji : deniedEmoji;
-                                        var to = after.IsServerDeafened ? acceptedEmoji : deniedEmoji;
-                                        actionLog = $"'server deafened' from {before.IsServerDeafened.ToString()} to {after.IsServerDeafened.ToString()}";
-                                        actionEmbed = $"{Formatter.InlineCode("Server Deafened")} state has been updated from {from} to {to}";
-                                    }
-
-                                    if (before.IsServerMuted != after.IsServerMuted)
-                                    {
-                                        stateChanged = true;
-                                        var from = before.IsServerMuted ? acceptedEmoji : deniedEmoji;
-                                        var to = after.IsServerMuted ? acceptedEmoji : deniedEmoji;
-                                        actionLog = $"'server muted' from {before.IsServerMuted.ToString()} to {after.IsServerMuted.ToString()}";
-                                        actionEmbed = $"{Formatter.InlineCode("Server Muted")} state has been updated from {from} to {to}";
-                                    }
-
-                                    if (before.IsSuppressed != after.IsSuppressed)
-                                    {
-                                        stateChanged = true;
-                                        var from = before.IsSuppressed ? acceptedEmoji : deniedEmoji;
-                                        var to = after.IsSuppressed ? acceptedEmoji : deniedEmoji;
-                                        actionLog = $"'suppressed' from {before.IsSuppressed.ToString()} to {after.IsSuppressed.ToString()}";
-                                        actionEmbed = $"{Formatter.InlineCode("Suppressed")} state has been updated from {from} to {to}";
-                                    }
-
-                                    if (stateChanged)
-                                    {
-                                        embed.Title = $"{DiscordEmoji.FromGuildEmote(voiceStateUpdateEventArgs.Client, EmojiLibrary.Update)} Member state updated";
-                                        embed.Description = actionEmbed;
-                                        logger.Information($"Voice state of the user '{voiceStateUpdateEventArgs.User.GetUsertag()}' ({voiceStateUpdateEventArgs.User.Id}) has been updated {actionLog.ToLowerInvariant()} in the channel '{voiceStateUpdateEventArgs.Channel.Name}' ({voiceStateUpdateEventArgs.Channel.Id}) on the guild '{voiceStateUpdateEventArgs.Guild.Name}' ({voiceStateUpdateEventArgs.Guild.Id}).");
-                                    }
+                                    VoiceStateUpdateMemberDisconnected(client, embed, voiceStateUpdateEventArgs, beforeChannel);
                                 }
-
-                                embed.Color = DiscordColor.CornflowerBlue;
                             }
                             else
                             {
-                                embed.Title = $"{DiscordEmoji.FromGuildEmote(voiceStateUpdateEventArgs.Client, EmojiLibrary.Left)} Member disconnected";
-                                embed.Description = $"Disconnected {Formatter.InlineCode(beforeChannel.Name)}";
-                                embed.Color = DiscordColor.IndianRed;
-                                logger.Information($"Member '{voiceStateUpdateEventArgs.User.GetUsertag()}' ({voiceStateUpdateEventArgs.User.Id}) disconnected from the channel '{beforeChannel.Name}' ({beforeChannel.Id}) on the guild '{voiceStateUpdateEventArgs.Guild.Name}' ({voiceStateUpdateEventArgs.Guild.Id}).");
+                                VoiceStateUpdateMemberConnected(client, embed, voiceStateUpdateEventArgs, afterChannel);
                             }
-                        }
-                        else
-                        {
-                            embed.Title = $"{DiscordEmoji.FromGuildEmote(voiceStateUpdateEventArgs.Client, EmojiLibrary.Joined)} Member connected";
-                            embed.Description = $"Connected {Formatter.InlineCode(afterChannel.Name)}";
-                            embed.Color = DiscordColor.SpringGreen; ;
-                            logger.Information($"Member '{voiceStateUpdateEventArgs.User.GetUsertag()}' ({voiceStateUpdateEventArgs.User.Id}) connected to the channel '{afterChannel.Name}' ({afterChannel.Id}) on the guild '{voiceStateUpdateEventArgs.Guild.Name}' ({voiceStateUpdateEventArgs.Guild.Id}).");
-                        }
 
-                        embed.Thumbnail = voiceStateUpdateEventArgs.User.AvatarUrl;
-                        embed.Footer = new EmbedFooter()
-                        {
-                            Text = $"Member: {voiceStateUpdateEventArgs.User.GetUsertag()} | {voiceStateUpdateEventArgs.User.Id}"
-                        };
+                            embed.Thumbnail = voiceStateUpdateEventArgs.User.AvatarUrl;
+                            embed.Footer = new EmbedFooter()
+                            {
+                                Text = $"Member: {voiceStateUpdateEventArgs.User.GetUsertag()} | {voiceStateUpdateEventArgs.User.Id}"
+                            };
+                            break;
+                        }
                     }
 
                     await logChannel.SendEmbedMessageAsync(embed);
@@ -490,6 +228,335 @@ namespace Defcon.Library.Services.Logs
                     await redis.ReplaceAsync(RedisKeyNaming.Guild(guild.Id), guildData);
                 }
             }
+        }
+
+        private static async Task ChannelCreate(BaseDiscordClient client, Embed embed, ChannelCreateEventArgs channelCreateEventArgs)
+        {
+            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.New)} Channel created";
+            embed.Description = new StringBuilder().AppendLine($"Name: `{channelCreateEventArgs.Channel.Name}` {channelCreateEventArgs.Channel.Mention}")
+                .AppendLine($"Identity: `{channelCreateEventArgs.Channel.Id}`")
+                .AppendLine($"Type: {channelCreateEventArgs.Channel.Type.ToString()}")
+                .ToString();
+            embed.Color = DiscordColor.SpringGreen;
+        }
+
+        private static async Task ChannelUpdate(BaseDiscordClient client, Embed embed, ChannelUpdateEventArgs channelUpdateEventArgs)
+        {
+            if (!channelUpdateEventArgs.ChannelBefore.IsPrivate)
+            {
+                embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Update)} Channel updated";
+                embed.Description = new StringBuilder().AppendLine(channelUpdateEventArgs.ChannelBefore.Name == channelUpdateEventArgs.ChannelAfter.Name
+                        ? $"Name: `{channelUpdateEventArgs.ChannelAfter.Name}` {channelUpdateEventArgs.ChannelAfter.Mention}"
+                        : $"Name: `{channelUpdateEventArgs.ChannelBefore.Name}` to `{channelUpdateEventArgs.ChannelAfter.Name}` {channelUpdateEventArgs.ChannelAfter.Mention}")
+                    .AppendLine($"Identity: `{channelUpdateEventArgs.ChannelAfter.Id}`")
+                    .AppendLine($"Type: {channelUpdateEventArgs.ChannelAfter.Type.ToString()}")
+                    .ToString();
+                embed.Color = DiscordColor.CornflowerBlue;
+            }
+        }
+
+        private async Task ChannelDelete(BaseDiscordClient client, DiscordGuild guild, IList<Defcon.Data.Guilds.Log> logs, ChannelDeleteEventArgs channelDeleteEventArgs, Guild guildData, Embed embed)
+        {
+            if (logs.Any(x => x.ChannelId == channelDeleteEventArgs.Channel.Id))
+            {
+                var deletedLogChannel = logs.First(x => x.ChannelId == channelDeleteEventArgs.Channel.Id);
+                guildData.Logs.Remove(deletedLogChannel);
+                await redis.ReplaceAsync(RedisKeyNaming.Guild(guild.Id), guildData);
+            }
+
+            if (!channelDeleteEventArgs.Channel.IsPrivate)
+            {
+                embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Erase)} Channel deleted";
+                embed.Description = new StringBuilder().AppendLine($"Name: `{channelDeleteEventArgs.Channel.Name}`")
+                    .AppendLine($"Identity: `{channelDeleteEventArgs.Channel.Id}`")
+                    .AppendLine($"Type: {channelDeleteEventArgs.Channel.Type.ToString()}")
+                    .ToString();
+                embed.Color = DiscordColor.IndianRed;
+            }
+        }
+
+        private static async Task GuildRoleCreate(BaseDiscordClient client, Embed embed, GuildRoleCreateEventArgs guildRoleCreateEventArgs)
+        {
+            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.New)} Role created";
+            embed.Description = new StringBuilder().AppendLine($"Name: `{guildRoleCreateEventArgs.Role.Name}`")
+                .AppendLine($"Identity: `{guildRoleCreateEventArgs.Role.Id}`")
+                .ToString();
+            embed.Color = DiscordColor.SpringGreen;
+        }
+
+        private static async Task GuildRoleUpdate(BaseDiscordClient client, Embed embed, GuildRoleUpdateEventArgs guildRoleUpdateEventArgs)
+        {
+            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Update)} Role updated";
+            embed.Description = new StringBuilder().AppendLine(guildRoleUpdateEventArgs.RoleBefore.Name == guildRoleUpdateEventArgs.RoleAfter.Name
+                    ? $"Name: `{guildRoleUpdateEventArgs.RoleAfter.Name}` {guildRoleUpdateEventArgs.RoleAfter.Mention}"
+                    : $"Name: `{guildRoleUpdateEventArgs.RoleBefore.Name}` to `{guildRoleUpdateEventArgs.RoleAfter.Name}` {guildRoleUpdateEventArgs.RoleAfter.Mention}")
+                .AppendLine($"Identity: `{guildRoleUpdateEventArgs.RoleAfter.Id}`")
+                .ToString();
+            embed.Color = DiscordColor.CornflowerBlue;
+        }
+
+        private static async Task GuildRoleDelete(BaseDiscordClient client, Embed embed, GuildRoleDeleteEventArgs guildRoleDeleteEventArgs)
+        {
+            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Erase)} Role deleted";
+            embed.Description = new StringBuilder().AppendLine($"Name: `{guildRoleDeleteEventArgs.Role.Name}`")
+                .AppendLine($"Identity: `{guildRoleDeleteEventArgs.Role.Id}`")
+                .ToString();
+            embed.Color = DiscordColor.IndianRed;
+        }
+
+        private static async Task GuildMemberAdd(BaseDiscordClient client, Embed embed, GuildMemberAddEventArgs memberAddEventArgs)
+        {
+            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Joined)} Member joined";
+            embed.Description = new StringBuilder().AppendLine($"Username: `{memberAddEventArgs.Member.GetUsertag()}`")
+                .AppendLine($"User identity: `{memberAddEventArgs.Member.Id}`")
+                .AppendLine($"Registered: {memberAddEventArgs.Member.CreatedAtLongDateTimeString().Result}")
+                .ToString();
+            embed.Color = DiscordColor.SpringGreen;
+            embed.Thumbnail = memberAddEventArgs.Member.AvatarUrl;
+        }
+
+        private static async Task GuildMemberUpdate(BaseDiscordClient client, Embed embed, GuildMemberUpdateEventArgs guildMemberUpdateEventArgs)
+        {
+            var before = string.IsNullOrWhiteSpace(guildMemberUpdateEventArgs.NicknameBefore) ? guildMemberUpdateEventArgs.Member.Username : guildMemberUpdateEventArgs.NicknameBefore;
+            var after = string.IsNullOrWhiteSpace(guildMemberUpdateEventArgs.NicknameAfter) ? guildMemberUpdateEventArgs.Member.Username : guildMemberUpdateEventArgs.NicknameAfter;
+
+            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Edit)} Nickname changed";
+            embed.Description = new StringBuilder().AppendLine($"Mention: {guildMemberUpdateEventArgs.Member.Mention}")
+                .AppendLine($"Username: {Formatter.InlineCode(guildMemberUpdateEventArgs.Member.GetUsertag())}")
+                .AppendLine($"Identity: {Formatter.InlineCode($"{guildMemberUpdateEventArgs.Member.Id}")}")
+                .ToString();
+            embed.Color = DiscordColor.CornflowerBlue;
+            embed.Thumbnail = guildMemberUpdateEventArgs.Member.AvatarUrl;
+            embed.Fields = new List<EmbedField>
+            {
+                new EmbedField {Inline = false, Name = "Before", Value = before},
+                new EmbedField {Inline = false, Name = "After", Value = after}
+            };
+            embed.Footer = new EmbedFooter {Text = $"Member Id: {guildMemberUpdateEventArgs.Member.Id}"};
+        }
+
+        private async Task GuildMemberRemove(BaseDiscordClient client, Embed embed, GuildMemberRemoveEventArgs guildMemberRemoveEventArgs, LogType logType)
+        {
+            var roles = guildMemberRemoveEventArgs.Member.Roles.Any()
+                ? guildMemberRemoveEventArgs.Member.Roles.Where(x => x.Name != "@everyone")
+                    .OrderByDescending(r => r.Position)
+                    .Aggregate("", (current, x) => current + $"{x.Mention} ")
+                : "None";
+            
+            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Left)} Member left";
+            embed.Description = new StringBuilder().AppendLine($"Username: `{guildMemberRemoveEventArgs.Member.GetUsertag()}`")
+                .AppendLine($"User identity: `{guildMemberRemoveEventArgs.Member.Id}`").ToString();
+
+            embed.Color = DiscordColor.Gray;
+            embed.Thumbnail = guildMemberRemoveEventArgs.Member.AvatarUrl;
+            embed.Fields = new List<EmbedField> {new EmbedField {Inline = false, Name = "Roles", Value = roles}};
+        }
+
+        private async Task GuildBanAdd(BaseDiscordClient client, Embed embed, GuildBanAddEventArgs guildBanAddEventArgs)
+        {
+            var roles = guildBanAddEventArgs.Member.Roles.Any()
+                ? guildBanAddEventArgs.Member.Roles.Where(x => x.Name != "@everyone")
+                    .OrderByDescending(r => r.Position)
+                    .Aggregate("", (current, x) => current + $"{x.Mention} ")
+                : "None";
+            
+            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Left)} Member banned";
+            embed.Description = new StringBuilder().AppendLine($"Username: `{guildBanAddEventArgs.Member.GetUsertag()}`")
+                .AppendLine($"User identity: `{guildBanAddEventArgs.Member.Id}`").ToString();
+
+            embed.Color = DiscordColor.IndianRed;
+            embed.Thumbnail = guildBanAddEventArgs.Member.AvatarUrl;
+            embed.Fields = new List<EmbedField> {new EmbedField {Inline = false, Name = "Roles", Value = roles}};
+        }
+        
+        private static async Task InviteCreate(BaseDiscordClient client, Embed embed, InviteCreateEventArgs inviteCreateEventArgs)
+        {
+            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.New)} Invite created";
+            embed.Description = new StringBuilder().AppendLine($"Code: `{inviteCreateEventArgs.Invite.Code}`")
+                .AppendLine($"`{inviteCreateEventArgs.Channel.Name}` {inviteCreateEventArgs.Channel.Mention}")
+                .AppendLine($"Identity: `{inviteCreateEventArgs.Channel.Id}`")
+                .AppendLine($"Inviter: {inviteCreateEventArgs.Invite.Inviter.GetUsertag()} `{inviteCreateEventArgs.Invite.Inviter.Id}`")
+                .AppendLine($"Temporary: `{inviteCreateEventArgs.Invite.IsTemporary}`")
+                .AppendLine($"Max age: {inviteCreateEventArgs.Invite.MaxAge}")
+                .AppendLine($"Max uses: {inviteCreateEventArgs.Invite.MaxUses}")
+                .ToString();
+            embed.Color = DiscordColor.SpringGreen;
+        }
+        
+        private static async Task InviteDelete(BaseDiscordClient client, Embed embed, InviteDeleteEventArgs inviteDeleteEventArgs)
+        {
+            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Erase)} Invite deleted";
+            embed.Description = new StringBuilder().AppendLine($"Code: `{inviteDeleteEventArgs.Invite.Code}`")
+                .AppendLine($"Created at: {inviteDeleteEventArgs.Invite.CreatedAt}")
+                .AppendLine($"`{inviteDeleteEventArgs.Channel.Name}` {inviteDeleteEventArgs.Channel.Mention}")
+                .AppendLine($"Identity: `{inviteDeleteEventArgs.Channel.Id}`")
+                .AppendLine($"Inviter: {inviteDeleteEventArgs.Invite.Inviter.GetUsertag()} `{inviteDeleteEventArgs.Invite.Inviter.Id}`")
+                .ToString();
+            embed.Color = DiscordColor.IndianRed;
+        }
+
+        private static void MessageUpdate(BaseDiscordClient client, Embed embed, MessageUpdateEventArgs messageUpdateEventArgs)
+        {
+            var fields = new List<EmbedField>
+            {
+                new EmbedField
+                {
+                    Inline = false,
+                    Name = "Before"
+                }
+            };
+
+            fields.First()
+                .Value = messageUpdateEventArgs.MessageBefore != null
+                ? messageUpdateEventArgs.MessageBefore.Content
+                : "The value is not available due to the message was send while the bot were offline or it's no longer in the cache.";
+
+            fields.Add(new EmbedField
+            {
+                Inline = false,
+                Name = "Now",
+                Value = Formatter.MaskedUrl("Jump to message", messageUpdateEventArgs.Message.JumpLink)
+            });
+
+            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Edit)} Message updated";
+            embed.Description = new StringBuilder().AppendLine($"Message ({messageUpdateEventArgs.Message.Id}) updated in {messageUpdateEventArgs.Channel.Mention}.")
+                .ToString();
+            embed.Color = DiscordColor.CornflowerBlue;
+            embed.Thumbnail = messageUpdateEventArgs.Author.AvatarUrl;
+            embed.Fields = fields;
+            embed.Footer = new EmbedFooter {Text = $"Author: {messageUpdateEventArgs.Author.Id} | Message Id: {messageUpdateEventArgs.Message.Id}"};
+        }
+
+        private void MessageDelete(BaseDiscordClient client, Embed embed, MessageDeleteEventArgs messageDeleteEventArgs)
+        {
+            this.logger.Information(!string.IsNullOrWhiteSpace(messageDeleteEventArgs.Message.Content)
+                ? $"The message ({messageDeleteEventArgs.Message.Id}) from '{messageDeleteEventArgs.Message.Author.GetUsertag()}' ({messageDeleteEventArgs.Message.Author.Id}) was deleted in '{messageDeleteEventArgs.Channel.Name}' ({messageDeleteEventArgs.Channel.Id}) on '{messageDeleteEventArgs.Guild.Name}' ({messageDeleteEventArgs.Guild.Id})."
+                : $"The message ({messageDeleteEventArgs.Message.Id}) was deleted in '{messageDeleteEventArgs.Channel.Name}' ({messageDeleteEventArgs.Channel.Id}) on '{messageDeleteEventArgs.Guild.Name}' ({messageDeleteEventArgs.Guild.Id}).");
+
+
+            var thumbnailUrl = string.Empty;
+            var fields = new List<EmbedField>
+            {
+                new EmbedField
+                {
+                    Inline = false,
+                    Name = "Content"
+                }
+            };
+
+            if (messageDeleteEventArgs.Message != null)
+            {
+                thumbnailUrl = messageDeleteEventArgs.Message.Author.AvatarUrl;
+                fields.First()
+                    .Value = messageDeleteEventArgs.Message.Content;
+                embed.Footer = new EmbedFooter {Text = $"Author: {messageDeleteEventArgs.Message.Author.Id} | Message Id: {messageDeleteEventArgs.Message.Id}"};
+            }
+            else
+            {
+                fields.First()
+                    .Value = "The value is not available due to the message was send while the bot were offline or it's no longer in the cache.";
+                embed.Footer = new EmbedFooter {Text = $"Message Id: {messageDeleteEventArgs.Message.Id}"};
+            }
+
+            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Erase)} Message deleted";
+            embed.Description = new StringBuilder().AppendLine($"Message ({messageDeleteEventArgs.Message.Id}) deleted in {messageDeleteEventArgs.Channel.Mention}.")
+                .ToString();
+            embed.Color = DiscordColor.IndianRed;
+            embed.Thumbnail = thumbnailUrl;
+            embed.Fields = fields;
+        }
+
+        private static void MessageBulkDelete(BaseDiscordClient client, Embed embed, MessageBulkDeleteEventArgs messageBulkDeleteEventArgs)
+        {
+            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Erase)} Message bulk deleted";
+            embed.Description = new StringBuilder().AppendLine($"{messageBulkDeleteEventArgs.Messages.Count} messages deleted in {messageBulkDeleteEventArgs.Channel.Mention}.").ToString();
+            embed.Color = DiscordColor.IndianRed;
+        }
+
+        private void VoiceStateUpdateMemberSwitched(BaseDiscordClient client, Embed embed, VoiceStateUpdateEventArgs voiceStateUpdateEventArgs, DiscordChannel beforeChannel, DiscordChannel afterChannel)
+        {
+            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Update)} Member switched voice channel";
+            embed.Description = $"Switched from {Formatter.InlineCode(beforeChannel.Name)} to {Formatter.InlineCode(afterChannel.Name)}";
+            this.logger.Information($"Member '{voiceStateUpdateEventArgs.User.GetUsertag()}' ({voiceStateUpdateEventArgs.User.Id}) switched the channel from '{beforeChannel.Name}' ({beforeChannel.Id}) to '{afterChannel.Name}' ({afterChannel.Id}) on the guild '{voiceStateUpdateEventArgs.Guild.Name}' ({voiceStateUpdateEventArgs.Guild.Id}).");
+        }
+
+        private void VoiceStateUpdateMedia(BaseDiscordClient client, Embed embed, VoiceStateUpdateEventArgs voiceStateUpdateEventArgs, DiscordVoiceState before, DiscordVoiceState after)
+        {
+            var actionLog = string.Empty;
+            var actionEmbed = string.Empty;
+            var stateChanged = false;
+            var acceptedEmoji = DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Accepted);
+            var deniedEmoji = DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Denied);
+
+            if (before.IsSelfDeafened != after.IsSelfDeafened)
+            {
+                stateChanged = true;
+                var from = before.IsSelfDeafened ? acceptedEmoji : deniedEmoji;
+                var to = after.IsSelfDeafened ? acceptedEmoji : deniedEmoji;
+                actionLog = $"'self deafened' from {before.IsSelfDeafened.ToString()} to {after.IsSelfDeafened.ToString()}";
+                actionEmbed = $"{Formatter.InlineCode("Self Deafened")} state has been updated from {from} to {to}";
+            }
+
+            if (before.IsSelfMuted != after.IsSelfMuted)
+            {
+                stateChanged = true;
+                var from = before.IsSelfMuted ? acceptedEmoji : deniedEmoji;
+                var to = after.IsSelfMuted ? acceptedEmoji : deniedEmoji;
+                actionLog = $"'self muted' from {before.IsSelfMuted.ToString()} to {after.IsSelfMuted.ToString()}";
+                actionEmbed = $"{Formatter.InlineCode("Self Muted")} state has been updated from {from} to {to}";
+            }
+
+            if (before.IsServerDeafened != after.IsServerDeafened)
+            {
+                stateChanged = true;
+                var from = before.IsServerDeafened ? acceptedEmoji : deniedEmoji;
+                var to = after.IsServerDeafened ? acceptedEmoji : deniedEmoji;
+                actionLog = $"'server deafened' from {before.IsServerDeafened.ToString()} to {after.IsServerDeafened.ToString()}";
+                actionEmbed = $"{Formatter.InlineCode("Server Deafened")} state has been updated from {from} to {to}";
+            }
+
+            if (before.IsServerMuted != after.IsServerMuted)
+            {
+                stateChanged = true;
+                var from = before.IsServerMuted ? acceptedEmoji : deniedEmoji;
+                var to = after.IsServerMuted ? acceptedEmoji : deniedEmoji;
+                actionLog = $"'server muted' from {before.IsServerMuted.ToString()} to {after.IsServerMuted.ToString()}";
+                actionEmbed = $"{Formatter.InlineCode("Server Muted")} state has been updated from {from} to {to}";
+            }
+
+            if (before.IsSuppressed != after.IsSuppressed)
+            {
+                stateChanged = true;
+                var from = before.IsSuppressed ? acceptedEmoji : deniedEmoji;
+                var to = after.IsSuppressed ? acceptedEmoji : deniedEmoji;
+                actionLog = $"'suppressed' from {before.IsSuppressed.ToString()} to {after.IsSuppressed.ToString()}";
+                actionEmbed = $"{Formatter.InlineCode("Suppressed")} state has been updated from {from} to {to}";
+            }
+            
+            // Todo: IsSelfStream and IsSelfVideo (waiting for upcoming lib update)
+
+            if (stateChanged)
+            {
+                embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Update)} Member state updated";
+                embed.Description = actionEmbed;
+                this.logger.Information($"Voice state of the user '{voiceStateUpdateEventArgs.User.GetUsertag()}' ({voiceStateUpdateEventArgs.User.Id}) has been updated {actionLog.ToLowerInvariant()} in the channel '{voiceStateUpdateEventArgs.Channel.Name}' ({voiceStateUpdateEventArgs.Channel.Id}) on the guild '{voiceStateUpdateEventArgs.Guild.Name}' ({voiceStateUpdateEventArgs.Guild.Id}).");
+            }
+        }
+
+        private void VoiceStateUpdateMemberDisconnected(BaseDiscordClient client, Embed embed, VoiceStateUpdateEventArgs voiceStateUpdateEventArgs, DiscordChannel beforeChannel)
+        {
+            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Left)} Member disconnected";
+            embed.Description = $"Disconnected {Formatter.InlineCode(beforeChannel.Name)}";
+            embed.Color = DiscordColor.IndianRed;
+            this.logger.Information($"Member '{voiceStateUpdateEventArgs.User.GetUsertag()}' ({voiceStateUpdateEventArgs.User.Id}) disconnected from the channel '{beforeChannel.Name}' ({beforeChannel.Id}) on the guild '{voiceStateUpdateEventArgs.Guild.Name}' ({voiceStateUpdateEventArgs.Guild.Id}).");
+        }
+
+        private void VoiceStateUpdateMemberConnected(BaseDiscordClient client, Embed embed, VoiceStateUpdateEventArgs voiceStateUpdateEventArgs, DiscordChannel afterChannel)
+        {
+            embed.Title = $"{DiscordEmoji.FromGuildEmote(client, EmojiLibrary.Joined)} Member connected";
+            embed.Description = $"Connected {Formatter.InlineCode(afterChannel.Name)}";
+            embed.Color = DiscordColor.SpringGreen;
+            this.logger.Information($"Member '{voiceStateUpdateEventArgs.User.GetUsertag()}' ({voiceStateUpdateEventArgs.User.Id}) connected to the channel '{afterChannel.Name}' ({afterChannel.Id}) on the guild '{voiceStateUpdateEventArgs.Guild.Name}' ({voiceStateUpdateEventArgs.Guild.Id}).");
         }
 
         private static async Task<string> SetLogTypeGetLogLabel(LogType logType)

@@ -38,17 +38,12 @@ namespace Defcon.Library.Extensions
         public static async Task<bool> IsModerator(this IRedisDatabase redis, ulong guildId, DiscordMember member)
         {
             var guild = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(guildId));
-
             var isModerator = false;
 
             foreach (var role in member.Roles)
             {
-                if (isModerator)
-                {
-                    break;
-                }
-
                 isModerator = guild.ModeratorRoleIds.Any(x => x == role.Id);
+                if (isModerator) break;
             }
 
             return isModerator;
