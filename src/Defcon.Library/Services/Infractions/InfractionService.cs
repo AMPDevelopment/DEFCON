@@ -28,109 +28,173 @@ namespace Defcon.Library.Services.Infractions
 
         public async Task CreateInfraction(DiscordGuild guild, DiscordChannel channel, DiscordClient client, DiscordMember moderator, DiscordMember suspect, string reason, InfractionType infractionType)
         {
+            var suspectLeft = guild.GetMemberAsync(suspect.Id).Result == null;
+            var embed = new Embed();
             var owners = client.CurrentApplication.Owners;
             var verb = infractionType.ToInfractionString().ToLowerInvariant();
             var action = infractionType.ToActionString().ToLowerInvariant();
+
+            var isSuspectAdministrator = false;
             var isModerator = await redis.IsModerator(guild.Id, moderator);
-
             var isAdministrator = moderator.Roles.Any(role => role.Permissions.HasPermission(Permissions.Administrator));
-            var isSuspectAdministrator = suspect.Roles.Any(role => role.Permissions.HasPermission(Permissions.Administrator));
-            isModerator = !isModerator && isAdministrator;
 
-            if (!isModerator)
+            if (!isModerator && isAdministrator)
             {
-                await channel.SendMessageAsync("You are not a moderator of this server.");
-            } 
-            else if (moderator == suspect)
-            {
-                await channel.SendMessageAsync($"You can not {verb} yourself!");
+                isModerator = true;
             }
-            else if (owners.Any(x => x.Id == suspect.Id))
-            {
-                await channel.SendMessageAsync($"You can not {verb} {suspect.Username}!");
-            }
-            else if (suspect.IsOwner)
-            {
-                await channel.SendMessageAsync($"You can not {verb} the owner!");
-            }
-            else if (isSuspectAdministrator)
-            {
-                await channel.SendMessageAsync($"You can not {verb} a administrator!");
-            }
-            else if (await redis.IsModerator(guild.Id, suspect))
-            {
-                var guildData = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(guild.Id));
 
-                switch (infractionType)
+            if (isModerator)
+            {
+                if (!suspectLeft)
                 {
-                    case InfractionType.Ban:
-                    case InfractionType.Kick:
-                        await channel.SendMessageAsync($"You can not {verb} a moderator!");
-                        break;
-                    case InfractionType.Warning:
+                    if (suspect.Roles.Any(role => role.Permissions.HasPermission(Permissions.Administrator)))
                     {
-                        if (!guildData.AllowWarnModerators)
-                        {
-                            await channel.SendMessageAsync($"You can not {verb} a moderator! [Disabled]");
-                        }
-
-                        break;
+                        isSuspectAdministrator = true;
                     }
-                    case InfractionType.Mute:
-                    {
-                        if (!guildData.AllowMuteModerators)
-                        {
-                            await channel.SendMessageAsync($"You can not {verb} a moderator! [Disabled]");
-                        }
 
-                        break;
+                    if (moderator == suspect)
+                    {
+                        await channel.SendMessageAsync($"You can not {verb} yourself!");
+                    }
+                    else if (owners.Any(x => x.Id == suspect.Id))
+                    {
+                        await channel.SendMessageAsync($"You can not {verb} {suspect.Username}!");
+                    }
+                    else if (suspect.IsOwner)
+                    {
+                        await channel.SendMessageAsync($"You can not {verb} the owner!");
+                    }
+                    else if (isSuspectAdministrator)
+                    {
+                        await channel.SendMessageAsync($"You can not {verb} a administrator!");
+                    }
+                    else if (await redis.IsModerator(guild.Id, suspect))
+                    {
+                        var guildData = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(guild.Id));
+
+                        switch (infractionType)
+                        {
+                            case InfractionType.Ban:
+                            case InfractionType.Kick:
+                                await channel.SendMessageAsync($"You can not {verb} a moderator!");
+                                break;
+                            case InfractionType.Warning:
+                            {
+                                if (!guildData.AllowWarnModerators)
+                                {
+                                    await channel.SendMessageAsync($"You can not {verb} a moderator! [Disabled]");
+                                }
+
+                                break;
+                            }
+                            case InfractionType.Mute:
+                            {
+                                if (!guildData.AllowMuteModerators)
+                                {
+                                    await channel.SendMessageAsync($"You can not {verb} a moderator! [Disabled]");
+                                }
+
+                                break;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var userData = await redis.InitUser(suspect.Id);
+
+                        userData.Infractions.Add(new Infraction()
+                        {
+                            Id = ++userData.InfractionId,
+                            ModeratorId = moderator.Id,
+                            ModeratorUsername = moderator.GetUsertag(),
+                            GuildId = guild.Id,
+                            InfractionType = infractionType,
+                            Reason = reason,
+                            Date = DateTimeOffset.UtcNow
+                        });
+
+                        await redis.ReplaceAsync<User>(RedisKeyNaming.User(suspect.Id), userData);
+
+                        var description = new StringBuilder().AppendLine($"Moderator: {moderator.GetUsertag()} {Formatter.InlineCode($"{moderator.Id}")}")
+                            .AppendLine($"Reason: {reason}");
+
+                    
+                        description.AppendLine("User left the server already!");
+                        embed = new Embed()
+                        {
+                            Title = $"{suspect.Username} has been {action}!",
+                            Description = description.ToString(),
+                            Footer = new EmbedFooter()
+                            {
+                                Text = $"Infractions: {userData.Infractions.Count}"
+                            }
+                        };
+                    
+                        await channel.SendEmbedMessageAsync(embed);
+
+                        embed.Title = $"You have been {action} on {guild.Name}";
+                        await suspect.SendEmbedMessageAsync(embed);
+                    
+
+                        switch (infractionType)
+                        {
+                            case InfractionType.Kick:
+                                await suspect.RemoveAsync(reason);
+                                break;
+                            case InfractionType.Ban:
+                                await guild.BanMemberAsync(suspect.Id, 7, reason);
+                                break;
+                        }
+                    }
+                }
+                else
+                {
+                    var suspectedUser = await client.GetUserAsync(suspect.Id);
+                    var userData = await redis.InitUser(suspectedUser.Id);
+
+                    userData.Infractions.Add(new Infraction()
+                    {
+                        Id = ++userData.InfractionId,
+                        ModeratorId = moderator.Id,
+                        ModeratorUsername = moderator.GetUsertag(),
+                        GuildId = guild.Id,
+                        InfractionType = infractionType,
+                        Reason = reason,
+                        Date = DateTimeOffset.UtcNow
+                    });
+
+                    await redis.ReplaceAsync<User>(RedisKeyNaming.User(suspectedUser.Id), userData);
+
+                    var description = new StringBuilder().AppendLine($"Moderator: {moderator.GetUsertag()} {Formatter.InlineCode($"{moderator.Id}")}")
+                        .AppendLine($"Reason: {reason}")
+                        .AppendLine("User left the server already!");
+                    
+                    embed = new Embed()
+                    {
+                        Title = $"{suspect.Username} has been {action}!",
+                        Description = description.ToString(),
+                        Footer = new EmbedFooter()
+                        {
+                            Text = $"Infractions: {userData.Infractions.Count}"
+                        }
+                    };
+                
+                    await channel.SendEmbedMessageAsync(embed);
+                    
+                    switch (infractionType)
+                    {
+                        case InfractionType.Kick:
+                            await channel.SendMessageAsync("Suspect already left");
+                            break;
+                        case InfractionType.Ban:
+                            await guild.BanMemberAsync(suspectedUser.Id);
+                            break;
                     }
                 }
             }
             else
             {
-                var userData = await redis.InitUser(suspect.Id);
-
-                userData.Infractions.Add(new Infraction()
-                {
-                    Id = ++userData.InfractionId,
-                    ModeratorId = moderator.Id,
-                    ModeratorUsername = moderator.GetUsertag(),
-                    GuildId = guild.Id,
-                    InfractionType = infractionType,
-                    Reason = reason,
-                    Date = DateTimeOffset.UtcNow
-                });
-
-                await redis.ReplaceAsync<User>(RedisKeyNaming.User(suspect.Id), userData);
-
-                var description = new StringBuilder().AppendLine($"Moderator: {moderator.GetUsertag()} {Formatter.InlineCode($"{moderator.Id}")}")
-                                                     .AppendLine($"Reason: {reason}").ToString();
-
-                var embed = new Embed()
-                {
-                    Title = $"{suspect.Username} has been {action}!",
-                    Description = description,
-                    Footer = new EmbedFooter()
-                    {
-                        Text = $"Infractions: {userData.Infractions.Count}"
-                    }
-                };
-
-                await channel.SendEmbedMessageAsync(embed);
-
-                embed.Title = $"You have been {action} on {guild.Name}";
-                await suspect.SendEmbedMessageAsync(embed);
-
-                switch (infractionType)
-                {
-                    case InfractionType.Kick:
-                        await suspect.RemoveAsync(reason);
-                        break;
-                    case InfractionType.Ban:
-                        await guild.BanMemberAsync(suspect, 7, reason);
-                        break;
-                }
+                await channel.SendMessageAsync("You are not a moderator of this server.");
             }
         }
 

@@ -62,7 +62,6 @@ namespace Defcon.Library.Extensions
                 ModeratorRoleIds = new List<ulong>(),
                 AllowWarnModerators = false,
                 AllowMuteModerators = false,
-                RulesAgreement = new RulesAgreement(),
                 Logs = new List<Log>(),
                 Settings = new List<Setting>(),
                 ReactionCategories = new List<ReactionCategory>(),
@@ -88,11 +87,6 @@ namespace Defcon.Library.Extensions
                 guild.AllowMuteModerators = false;
             }
 
-            guild.RulesAgreement ??= new RulesAgreement()
-            {
-                MessageId = ulong.MinValue,
-                RoleId = ulong.MinValue
-            };
             guild.Logs ??= new List<Log>();
             guild.Settings ??= new List<Setting>();
             guild.ReactionCategories ??= new List<ReactionCategory>();

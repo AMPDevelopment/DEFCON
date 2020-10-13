@@ -397,26 +397,6 @@ namespace Defcon.Handler.Client
                     {
                         reactionService.ManageRole(e.Message, e.Channel, member, e.Emoji);
                     }
-
-                    var guild = await redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id)).ConfigureAwait(true);
-                    if (guild.RulesAgreement.MessageId == e.Message.Id && e.Emoji.Id == EmojiLibrary.Accepted)
-                    {
-                        var role = e.Guild.GetRole(guild.RulesAgreement.RoleId);
-
-                        if (role == null)
-                        {
-                            // Contact member and server owner!
-                        }
-                        else
-                        {
-                            await member.GrantRoleAsync(role).ConfigureAwait(true);
-                        }
-                    }
-                    else if (guild.RulesAgreement.MessageId == e.Message.Id && e.Emoji.Id == EmojiLibrary.Denied)
-                    {
-                        await e.Message.DeleteReactionAsync(e.Emoji, member).ConfigureAwait(true);
-                        await member.RemoveAsync("Did not accept the server rules.").ConfigureAwait(true);
-                    }
                 }
             }
             });
@@ -434,18 +414,6 @@ namespace Defcon.Handler.Client
                     {
                         this.logger.Information($"{e.User.GetUsertag()} ({e.User.Id}) has removed {emojiName} to the message '{e.Message.Id}' in the direct message.");
                         await Task.CompletedTask.ConfigureAwait(true);
-                    }
-
-                    var guild = redis.GetAsync<Guild>(RedisKeyNaming.Guild(e.Guild.Id))
-                        .GetAwaiter()
-                        .GetResult();
-
-                    if (guild.RulesAgreement.MessageId == e.Message.Id && e.Emoji.Id == EmojiLibrary.Accepted)
-                    {
-                        var role = e.Guild.GetRole(guild.RulesAgreement.RoleId);
-                        var member = e.Channel.Guild.GetMemberAsync(e.User.Id).Result;
-
-                        member.RevokeRoleAsync(role);
                     }
 
                     this.logger.Information($"'{e.User.GetUsertag()}' ({e.User.Id}) has removed {emojiName} to the message '{e.Message.Id}' in the channel '{e.Channel.Name}' ({e.Channel.Id}) on the guild '{e.Guild.Name}' ({e.Guild.Id}).");

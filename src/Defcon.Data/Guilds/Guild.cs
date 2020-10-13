@@ -10,7 +10,6 @@ namespace Defcon.Data.Guilds
         public IList<ulong> ModeratorRoleIds { get; set; }
         public bool AllowWarnModerators { get; set; }
         public bool AllowMuteModerators { get; set; }
-        public RulesAgreement RulesAgreement { get; set; }
         public IList<Log> Logs { get; set; }
         public IList<Setting> Settings { get; set; }
         public IList<ReactionMessage> ReactionMessages { get; set; }
